@@ -2,9 +2,9 @@
 
 ApexRisk is an early-stage portfolio project that demonstrates how vehicle journey data can
 flow through a reproducible risk-engineering pipeline. The current thin slice generates a
-synthetic population, synthetic vehicles and context-aware synthetic trips; stores the
-results as Parquet; builds exposure-normalised driver-month features; and exposes a minimal
-FastAPI health endpoint.
+synthetic population, synthetic vehicles and context-aware synthetic trips; builds
+exposure-normalised driver-month features; simulates policy exposure and individual claims;
+stores the results as Parquet; and exposes a minimal FastAPI health endpoint.
 
 > **Important:** every dataset produced by this repository is synthetic. The project is a
 > methodological and software-engineering demonstration. It is not evidence of real-world
@@ -23,6 +23,8 @@ Trip behavioural features
         ↓
 Driver-month behavioural features
         ↓
+Policy-month exposure + synthetic claims
+        ↓
 Parquet tables + synthetic-data manifest
 
 FastAPI /health endpoint (separate deployment check)
@@ -39,6 +41,12 @@ Initial features include:
 - time-weighted night-driving fraction;
 - time-weighted speeding fraction; and
 - mean speeding excess while speeding.
+
+The outcome simulator creates one record for every insured driver-month, including months
+with no claims. Claim frequency varies stochastically with exposure, behavioural signals,
+driver traits and vehicle safety. Ordinary claim costs use a lognormal distribution, while
+a small Pareto-mixture component creates occasional heavy-tailed large losses. These are
+explicitly configurable simulation assumptions, not empirical insurance estimates.
 
 ## Repository layout
 
@@ -81,6 +89,8 @@ vehicles.parquet
 trips.parquet
 trip_features.parquet
 driver_month_features.parquet
+policy_exposure.parquet
+claims.parquet
 manifest.json
 ```
 
@@ -90,6 +100,7 @@ You can also run it directly with explicit paths:
 apexrisk pipeline \
   --config configs/simulation.yaml \
   --features-config configs/features.yaml \
+  --claims-config configs/claims.yaml \
   --output data/generated
 ```
 
@@ -136,10 +147,8 @@ reviewable in `configs/`.
 ## Next milestones
 
 1. Add second-by-second telemetry generation and robust event detection.
-2. Generate policy exposure, accidents, claims and heavy-tailed claim severity separately.
-3. Train exposure-aware Poisson frequency and Gamma severity baselines.
-4. Compare the two-part model with a Tweedie pure-premium model.
-5. Add grouped and out-of-time validation, calibration and simulation-ground-truth recovery.
-6. Implement credibility weighting, uncertainty and an indicative technical-premium endpoint.
-7. Add model cards, fairness checks, lineage and drift scenarios.
-
+2. Train exposure-aware Poisson frequency and Gamma severity baselines.
+3. Compare the two-part model with a Tweedie pure-premium model.
+4. Add grouped and out-of-time validation, calibration and simulation-ground-truth recovery.
+5. Implement credibility weighting, uncertainty and an indicative technical-premium endpoint.
+6. Add model cards, fairness checks, lineage and drift scenarios.

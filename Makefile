@@ -13,6 +13,7 @@ pipeline:
 	python -m apexrisk pipeline \
 		--config configs/simulation.yaml \
 		--features-config configs/features.yaml \
+		--claims-config configs/claims.yaml \
 		--output data/generated
 
 serve:
@@ -23,4 +24,3 @@ docker-build:
 
 docker-run:
 	docker run --rm -p 8000:8000 apexrisk:local
-

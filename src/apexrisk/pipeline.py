@@ -11,9 +11,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from apexrisk.config import FeatureConfig, SimulationConfig
+from apexrisk.config import ClaimsConfig, FeatureConfig, SimulationConfig
 from apexrisk.features import build_driver_month_features, build_trip_features
-from apexrisk.simulation import generate_drivers, generate_journeys, generate_vehicles
+from apexrisk.simulation import (
+    generate_drivers,
+    generate_journeys,
+    generate_policy_exposure_and_claims,
+    generate_vehicles,
+)
 
 
 def _write_parquet(frame: pd.DataFrame, path: Path) -> None:
@@ -25,12 +30,14 @@ def run_synthetic_pipeline(
     simulation_config: SimulationConfig,
     feature_config: FeatureConfig,
     output_dir: str | Path,
+    claims_config: ClaimsConfig | None = None,
 ) -> dict[str, Any]:
-    """Generate synthetic entities, trips, and monthly behavioural features."""
+    """Generate synthetic entities, trips, features, exposure, and claims."""
 
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(simulation_config.seed)
+    claims_config = claims_config or ClaimsConfig()
 
     population = generate_drivers(simulation_config.n_drivers, rng)
     vehicles = generate_vehicles(population.observed, rng)
@@ -48,6 +55,16 @@ def run_synthetic_pipeline(
         trips,
         minimum_distance_km=feature_config.minimum_monthly_distance_km,
     )
+    outcomes = generate_policy_exposure_and_claims(
+        population.observed,
+        vehicles,
+        population.latent,
+        driver_month_features,
+        start_date=simulation_config.start_date,
+        months=simulation_config.months,
+        config=claims_config,
+        rng=rng,
+    )
 
     outputs = {
         "drivers": destination / "drivers.parquet",
@@ -55,6 +72,8 @@ def run_synthetic_pipeline(
         "trips": destination / "trips.parquet",
         "trip_features": destination / "trip_features.parquet",
         "driver_month_features": destination / "driver_month_features.parquet",
+        "policy_exposure": destination / "policy_exposure.parquet",
+        "claims": destination / "claims.parquet",
     }
     for name, frame in {
         "drivers": population.observed,
@@ -62,6 +81,8 @@ def run_synthetic_pipeline(
         "trips": trips,
         "trip_features": trip_features,
         "driver_month_features": driver_month_features,
+        "policy_exposure": outcomes.policy_exposure,
+        "claims": outcomes.claims,
     }.items():
         _write_parquet(frame, outputs[name])
 
@@ -74,12 +95,15 @@ def run_synthetic_pipeline(
             **asdict(simulation_config),
             "start_date": simulation_config.start_date.isoformat(),
         },
+        "claims_config": asdict(claims_config),
         "row_counts": {
             "drivers": len(population.observed),
             "vehicles": len(vehicles),
             "trips": len(trips),
             "trip_features": len(trip_features),
             "driver_month_features": len(driver_month_features),
+            "policy_exposure": len(outcomes.policy_exposure),
+            "claims": len(outcomes.claims),
         },
         "files": {name: path.name for name, path in outputs.items()},
         "private_latent_traits_published": False,

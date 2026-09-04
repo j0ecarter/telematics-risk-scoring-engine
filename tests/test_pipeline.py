@@ -26,6 +26,8 @@ def test_pipeline_writes_documented_parquet_outputs(tmp_path) -> None:
         "trips.parquet",
         "trip_features.parquet",
         "driver_month_features.parquet",
+        "policy_exposure.parquet",
+        "claims.parquet",
         "manifest.json",
     }
     assert expected_files == {path.name for path in tmp_path.iterdir()}
@@ -34,5 +36,11 @@ def test_pipeline_writes_documented_parquet_outputs(tmp_path) -> None:
 
     drivers = pd.read_parquet(tmp_path / "drivers.parquet")
     assert "aggressiveness" not in drivers.columns
+    exposure = pd.read_parquet(tmp_path / "policy_exposure.parquet")
+    claims = pd.read_parquet(tmp_path / "claims.parquet")
+    assert len(exposure) == 10
+    assert "aggressiveness" not in exposure.columns
+    assert "attentiveness" not in claims.columns
     stored_manifest = json.loads((tmp_path / "manifest.json").read_text())
     assert stored_manifest["row_counts"]["drivers"] == 10
+    assert stored_manifest["row_counts"]["policy_exposure"] == 10
