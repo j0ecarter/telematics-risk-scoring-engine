@@ -1,0 +1,8 @@
+model:
+  status: "not_implemented"
+  planned_baselines:
+    - poisson_frequency
+    - gamma_severity
+    - tweedie_pure_premium
+  split_strategy: "grouped_and_out_of_time"
+

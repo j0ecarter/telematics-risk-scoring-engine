@@ -1,0 +1,7 @@
+simulation:
+  seed: 20260803
+  n_drivers: 250
+  start_date: "2025-01-01"
+  months: 3
+  mean_trips_per_driver_per_month: 18
+
