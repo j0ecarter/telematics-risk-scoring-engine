@@ -1,0 +1,84 @@
+telemetry:
+  # ---------------------------------------------------------------------------
+  # Harsh-event detection assumptions.
+  #
+  # Every value below is deliberately unset. These are the headline assumptions of
+  # the whole detection layer: a threshold chosen carelessly changes every event
+  # rate the pipeline reports, and an uncited number is indistinguishable from a
+  # guess. Research each one, set it, and record the source in the comment above it.
+  #
+  # The configuration loader refuses to start while any value is still null, so
+  # nothing downstream can accidentally run on placeholder numbers.
+  #
+  # See docs/telemetry_contract.md for how these are used.
+  # ---------------------------------------------------------------------------
+
+  # Width of the rolling median applied to raw speed before differentiation.
+  # Must be odd. Wider windows suppress GPS noise but also flatten genuine short
+  # events, so this trades false positives against missed detections.
+  # SOURCE:
+  smoothing_window_seconds: null
+
+  # Samples ignored at each end of a trace, where the smoothing window and the
+  # central difference are not fully defined.
+  # SOURCE:
+  edge_trim_seconds: null
+
+  # A threshold crossing must be sustained for at least this long to count as an
+  # event. Guards against single-sample noise spikes surviving the smoother.
+  # SOURCE:
+  minimum_event_duration_seconds: null
+
+  # Two crossings closer together than this are treated as one event. Without this,
+  # a single four-second brake is counted four times.
+  # SOURCE:
+  minimum_event_separation_seconds: null
+
+  # Below this speed, a large heading change is a parking or turning manoeuvre
+  # rather than harsh cornering, and is not flagged.
+  # SOURCE:
+  cornering_minimum_speed_kmh: null
+
+  # Speed is only counted as speeding above (limit + tolerance). Because observed
+  # speed is noisy, counting everything above the bare limit badly overstates
+  # speeding for drivers travelling at or near it. See contract section 4.
+  # SOURCE:
+  speeding_tolerance_kmh: null
+
+  # Deceleration magnitudes in m/s^2, as positive numbers. Must increase strictly
+  # from moderate to severe. Figures near 0.3g are commonly quoted for harsh
+  # braking but vary widely between vendors and detection methods; cite whichever
+  # you adopt and note whether it was derived from GPS or accelerometer data.
+  # SOURCE:
+  braking_thresholds_ms2:
+    moderate: null
+    harsh: null
+    severe: null
+
+  # Acceleration magnitudes in m/s^2, as positive numbers.
+  # SOURCE:
+  acceleration_thresholds_ms2:
+    moderate: null
+    harsh: null
+    severe: null
+
+  # Lateral acceleration magnitudes in m/s^2, as positive numbers. Lateral
+  # acceleration is approximately speed multiplied by yaw rate in radians.
+  # SOURCE:
+  cornering_thresholds_ms2:
+    moderate: null
+    harsh: null
+    severe: null
+
+  # ---------------------------------------------------------------------------
+  # Calibration targets, for later. Not read by EventDetectionConfig.
+  #
+  # Once the generator exists, detected event rates are tuned to land near
+  # published benchmarks. Record the benchmarks here, with sources, so the
+  # calibration has a stated target rather than a subjective one.
+  #
+  # expected_events_per_100km:
+  #   hard_braking:     # SOURCE:
+  #   hard_acceleration:# SOURCE:
+  #   harsh_cornering:  # SOURCE:
+  # ---------------------------------------------------------------------------

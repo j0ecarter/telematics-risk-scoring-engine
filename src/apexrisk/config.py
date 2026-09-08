@@ -217,3 +217,114 @@ class ClaimsConfig:
             raise ValueError("claim type probabilities must sum to one")
         if any(multiplier <= 0 for multiplier in self.claim_type_severity_multipliers.values()):
             raise ValueError("claim type severity multipliers must be positive")
+
+
+# Severity bands used by harsh-event detection, ordered from least to most severe.
+SEVERITY_BANDS: tuple[str, ...] = ("moderate", "harsh", "severe")
+
+
+def _require_value(payload: dict[str, Any], key: str, section: str) -> Any:
+    """Return a configured value, refusing both missing and deliberately unset entries.
+
+    Detection thresholds have no safe default: a wrong threshold silently changes every
+    event rate the pipeline reports. Rather than fall back to an invented number, an unset
+    entry is an error telling the reader what still needs researching.
+    """
+
+    if key not in payload:
+        raise ValueError(f"{section}.{key} is missing from the configuration file")
+    if payload[key] is None:
+        raise ValueError(
+            f"{section}.{key} is unset. Research an appropriate value, record its source "
+            "in the configuration comments, and set it explicitly."
+        )
+    return payload[key]
+
+
+@dataclass(frozen=True)
+class EventDetectionConfig:
+    """Versioned assumptions for harsh-event detection from 1 Hz telemetry.
+
+    Every field changes the event rates the pipeline reports, so none of them carry
+    defaults. See ``docs/telemetry_contract.md`` for the surrounding data contract.
+    """
+
+    smoothing_window_seconds: int
+    edge_trim_seconds: int
+    minimum_event_duration_seconds: int
+    minimum_event_separation_seconds: int
+    cornering_minimum_speed_kmh: float
+    speeding_tolerance_kmh: float
+    braking_thresholds_ms2: dict[str, float]
+    acceleration_thresholds_ms2: dict[str, float]
+    cornering_thresholds_ms2: dict[str, float]
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> EventDetectionConfig:
+        payload = _read_yaml(Path(path)).get("telemetry", {})
+        section = "telemetry"
+
+        def band_thresholds(key: str) -> dict[str, float]:
+            raw = _require_value(payload, key, section)
+            if not isinstance(raw, dict):
+                raise ValueError(f"{section}.{key} must be a mapping of severity band to value")
+            return {
+                str(band): float(_require_value(raw, str(band), f"{section}.{key}"))
+                for band in raw
+            }
+
+        config = cls(
+            smoothing_window_seconds=int(
+                _require_value(payload, "smoothing_window_seconds", section)
+            ),
+            edge_trim_seconds=int(_require_value(payload, "edge_trim_seconds", section)),
+            minimum_event_duration_seconds=int(
+                _require_value(payload, "minimum_event_duration_seconds", section)
+            ),
+            minimum_event_separation_seconds=int(
+                _require_value(payload, "minimum_event_separation_seconds", section)
+            ),
+            cornering_minimum_speed_kmh=float(
+                _require_value(payload, "cornering_minimum_speed_kmh", section)
+            ),
+            speeding_tolerance_kmh=float(
+                _require_value(payload, "speeding_tolerance_kmh", section)
+            ),
+            braking_thresholds_ms2=band_thresholds("braking_thresholds_ms2"),
+            acceleration_thresholds_ms2=band_thresholds("acceleration_thresholds_ms2"),
+            cornering_thresholds_ms2=band_thresholds("cornering_thresholds_ms2"),
+        )
+        config.validate()
+        return config
+
+    def validate(self) -> None:
+        # A median filter needs an odd window so that it has a defined centre sample.
+        if self.smoothing_window_seconds < 1 or self.smoothing_window_seconds % 2 == 0:
+            raise ValueError("smoothing_window_seconds must be a positive odd number of seconds")
+        if self.edge_trim_seconds < 0:
+            raise ValueError("edge_trim_seconds must not be negative")
+        if self.minimum_event_duration_seconds < 1:
+            raise ValueError("minimum_event_duration_seconds must be at least one second")
+        if self.minimum_event_separation_seconds < 1:
+            raise ValueError("minimum_event_separation_seconds must be at least one second")
+        if self.cornering_minimum_speed_kmh < 0:
+            raise ValueError("cornering_minimum_speed_kmh must not be negative")
+        if self.speeding_tolerance_kmh < 0:
+            raise ValueError("speeding_tolerance_kmh must not be negative")
+
+        banded = {
+            "braking_thresholds_ms2": self.braking_thresholds_ms2,
+            "acceleration_thresholds_ms2": self.acceleration_thresholds_ms2,
+            "cornering_thresholds_ms2": self.cornering_thresholds_ms2,
+        }
+        for name, thresholds in banded.items():
+            if set(thresholds) != set(SEVERITY_BANDS):
+                raise ValueError(f"{name} must define exactly the bands {list(SEVERITY_BANDS)}")
+            if any(value <= 0 for value in thresholds.values()):
+                raise ValueError(f"{name} values must be positive magnitudes")
+            ordered = [thresholds[band] for band in SEVERITY_BANDS]
+            if ordered != sorted(ordered) or len(set(ordered)) != len(ordered):
+                raise ValueError(
+                    f"{name} must increase strictly from {SEVERITY_BANDS[0]} to "
+                    f"{SEVERITY_BANDS[-1]}"
+                )
