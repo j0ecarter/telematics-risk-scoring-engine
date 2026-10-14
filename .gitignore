@@ -8,4 +8,9 @@ htmlcov/
 dist/
 build/
 data/generated/
+.DS_Store
+.env
+.env.*
+sources/
+AGENTS.md
 
