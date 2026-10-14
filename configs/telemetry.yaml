@@ -1,84 +1,85 @@
+# Version 1 assumptions, researched 2026-09-26; synthetic passenger-car scope.
+# Full rationale, source qualifications and sensitivity plan:
+# docs/telemetry_assumptions.md
 telemetry:
-  # ---------------------------------------------------------------------------
-  # Harsh-event detection assumptions.
-  #
-  # Every value below is deliberately unset. These are the headline assumptions of
-  # the whole detection layer: a threshold chosen carelessly changes every event
-  # rate the pipeline reports, and an uncited number is indistinguishable from a
-  # guess. Research each one, set it, and record the source in the comment above it.
-  #
-  # The configuration loader refuses to start while any value is still null, so
-  # nothing downstream can accidentally run on placeholder numbers.
-  #
-  # See docs/telemetry_contract.md for how these are used.
-  # ---------------------------------------------------------------------------
+  # PROJECT ASSUMPTION: three-sample centred median at 1 Hz suppresses isolated
+  # spikes while retaining more short-event detail than a wider window.
+  # Validate this compromise with known traces; not an empirical calibration.
+  smoothing_window_seconds: 3
 
-  # Width of the rolling median applied to raw speed before differentiation.
-  # Must be odd. Wider windows suppress GPS noise but also flatten genuine short
-  # events, so this trades false positives against missed detections.
-  # SOURCE:
-  smoothing_window_seconds: null
+  # DERIVED CHOICE: median half-window (1) + central-difference radius (1).
+  # Trim both ends of EACH valid segment. Revisit if either method changes.
+  edge_trim_seconds: 2
 
-  # Samples ignored at each end of a trace, where the smoothing window and the
-  # central difference are not fully defined.
-  # SOURCE:
-  edge_trim_seconds: null
+  # PROJECT ASSUMPTION: at least two consecutive qualifying samples at 1 Hz.
+  # Sample count approximates duration; short genuine events may be missed.
+  minimum_event_duration_seconds: 2
 
-  # A threshold crossing must be sustained for at least this long to count as an
-  # event. Guards against single-sample noise spikes surviving the smoother.
-  # SOURCE:
-  minimum_event_duration_seconds: null
+  # PROJECT ASSUMPTION: merge qualifying runs with fewer than three intervening
+  # below-threshold samples. Exactly three keeps events separate.
+  # Never merge across invalid GPS samples.
+  minimum_event_separation_seconds: 3
 
-  # Two crossings closer together than this are treated as one event. Without this,
-  # a single four-second brake is counted four times.
-  # SOURCE:
-  minimum_event_separation_seconds: null
+  # PROJECT ASSUMPTION: suppress low-speed manoeuvres and unstable heading.
+  # Speeds below 20 km/h are excluded; exactly 20 km/h is eligible.
+  # This intentionally also excludes genuine harsh turns below the gate.
+  cornering_minimum_speed_kmh: 20.0
 
-  # Below this speed, a large heading change is a parking or turning manoeuvre
-  # rather than harsh cornering, and is not flagged.
-  # SOURCE:
-  cornering_minimum_speed_kmh: null
+  # PROJECT ASSUMPTION: count only speed STRICTLY ABOVE limit + 5 km/h.
+  # Noise buffer, not a legal allowance or Geotab's speeding rule.
+  # Compare with 3 and 7 km/h later; this does not eliminate all noise bias.
+  speeding_tolerance_kmh: 5.0
 
-  # Speed is only counted as speeding above (limit + tolerance). Because observed
-  # speed is noisy, counting everything above the bare limit badly overstates
-  # speeding for drivers travelling at or near it. See contract section 4.
-  # SOURCE:
-  speeding_tolerance_kmh: null
-
-  # Deceleration magnitudes in m/s^2, as positive numbers. Must increase strictly
-  # from moderate to severe. Figures near 0.3g are commonly quoted for harsh
-  # braking but vary widely between vendors and detection methods; cite whichever
-  # you adopt and note whether it was derived from GPS or accelerometer data.
-  # SOURCE:
+  # SOURCE (harsh only): Geotab, GPS-based Passenger class, braking 0.300g.
+  # https://support.geotab.com/help/mygeotab/groups-and-rules/rules/rules-overview
+  # PROJECT ASSUMPTIONS: moderate 0.20g, severe 0.50g bracket that reference.
+  # Convert with g = 9.81 m/s^2; positive braking magnitudes, not signed values.
+  # These bands describe this detector, not validated accident-risk categories.
   braking_thresholds_ms2:
-    moderate: null
-    harsh: null
-    severe: null
+    moderate: 1.962
+    harsh: 2.943
+    severe: 4.905
 
-  # Acceleration magnitudes in m/s^2, as positive numbers.
-  # SOURCE:
+  # SOURCE (harsh only): same Geotab GPS Passenger table, acceleration 0.300g.
+  # PROJECT ASSUMPTIONS: moderate 0.20g and severe 0.50g; same starting bands
+  # as braking for simplicity, not evidence that the risks are symmetric.
   acceleration_thresholds_ms2:
-    moderate: null
-    harsh: null
-    severe: null
+    moderate: 1.962
+    harsh: 2.943
+    severe: 4.905
 
-  # Lateral acceleration magnitudes in m/s^2, as positive numbers. Lateral
-  # acceleration is approximately speed multiplied by yaw rate in radians.
-  # SOURCE:
+  # SOURCE (harsh only): same Geotab GPS Passenger table, cornering 0.420g.
+  # PROJECT ASSUMPTIONS: moderate 0.30g and severe 0.60g bracket that reference.
+  # 0.42 * 9.81 = 4.1202, rounded to three decimals. Not a precision claim.
   cornering_thresholds_ms2:
-    moderate: null
-    harsh: null
-    severe: null
+    moderate: 2.943
+    harsh: 4.120
+    severe: 5.886
 
-  # ---------------------------------------------------------------------------
-  # Calibration targets, for later. Not read by EventDetectionConfig.
-  #
-  # Once the generator exists, detected event rates are tuned to land near
-  # published benchmarks. Record the benchmarks here, with sources, so the
-  # calibration has a stated target rather than a subjective one.
-  #
-  # expected_events_per_100km:
-  #   hard_braking:     # SOURCE:
-  #   hard_acceleration:# SOURCE:
-  #   harsh_cornering:  # SOURCE:
-  # ---------------------------------------------------------------------------
+# DESIGN SETTINGS for the future trace generator (task 07).
+# Not loaded by EventDetectionConfig and not yet used by the pipeline.
+# All numbers here are PROJECT ASSUMPTIONS, not measured GPS performance.
+# GPS.gov explains receiver/environment dependence:
+# https://www.gps.gov/gps-accuracy
+# u-blox MAX-M10S datasheet p4 gives conditional accuracy, NOT noise stddevs:
+# https://content.u-blox.com/sites/default/files/MAX-M10S_DataSheet_UBX-20035208.pdf
+telemetry_simulation:
+  # Independent, zero-mean Gaussian errors per sample/channel before clipping
+  # speed to zero and wrapping heading to [0, 360). Use the simulation's seeded RNG.
+  # 1.8 km/h (0.5 m/s) speed stddev exercises smoothing with visible jitter.
+  speed_noise_std_kmh: 1.8
+  # One-degree stddev adds direction jitter; the detector's low-speed gate helps
+  # avoid interpreting low-speed direction changes as harsh cornering.
+  heading_noise_std_degrees: 1.0
+
+  # While not already in a dropout, each sample has a 0.2% chance to begin one.
+  # Start at that sample; draw duration uniformly from integers 1..5 inclusive.
+  # Clip at trip end, then resume opportunities; no overlapping dropout starts.
+  # About 0.6% invalid samples on long traces, NOT 0.2% invalid samples.
+  # This is a controlled robustness scenario, not an observed outage rate.
+  dropout_start_probability_per_sample: 0.002
+  dropout_duration_min_seconds: 1
+  dropout_duration_max_seconds: 5
+
+# Event-rate calibration targets belong to task 09. No universal events/100 km
+# target is asserted without a dataset matched to this detector and population.

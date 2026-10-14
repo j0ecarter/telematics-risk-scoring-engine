@@ -55,7 +55,7 @@ configs/                    Simulation, feature, model and pricing assumptions
 src/apexrisk/
   api/                      FastAPI application
   features/                 Exposure-normalised behavioural features
-  models/                   Placeholder for actuarial models
+  models/                   Poisson frequency baseline and held-out evaluation
   pricing/                  Placeholder for technical-premium logic
   simulation/               Driver, vehicle and journey generators
   cli.py                    Command-line interface
@@ -104,6 +104,27 @@ apexrisk pipeline \
   --output data/generated
 ```
 
+## Frequency baseline and evaluation
+
+After installing the project and generating the data with `make pipeline`, run:
+
+```bash
+python -m apexrisk.models.frequency
+python -m apexrisk.models.evaluation
+```
+
+The frequency model uses previous-month driving features to predict claim counts,
+with insured exposure included in a Poisson GLM. It trains on earlier usable months
+and holds out the latest month. Evaluation compares its predictions with a
+constant annual claim-rate benchmark using portfolio totals, Poisson deviance and
+predicted-risk-group calibration. Drivers may appear in both periods; a separate
+held-out-driver evaluation is still planned.
+
+`configs/model.yaml` records implementation status only; these scripts do not read
+it to configure training. Gamma severity and Tweedie pure-premium models remain
+planned. The small default synthetic dataset is a smoke check, not evidence of
+reliable predictive performance.
+
 ## API and Docker
 
 Run the API locally:
@@ -144,10 +165,25 @@ Future validation should compare selected feature distributions with credible ex
 benchmarks or appropriately licensed real data. Assumptions should remain versioned and
 reviewable in `configs/`.
 
+## Telemetry assumptions
+
+Version 1 detector settings and planned GPS noise/dropout settings are recorded
+in `configs/telemetry.yaml`, with sources and rationale in
+[Telemetry assumptions](docs/telemetry_assumptions.md). The detector settings
+load through `EventDetectionConfig`; the separate simulation settings are
+reserved for the future trace generator and do not yet affect the pipeline.
+
+At one reading per second, brief events can be missed and filtering can reduce
+peaks. Detected rates are specific to this sampling and algorithm, not directly
+comparable to higher-frequency accelerometer results. The planned speeding
+measure counts speed above the limit plus a tolerance; it is an estimate that
+omits smaller excesses. Thresholds and GPS errors remain assumptions requiring
+later sensitivity checks, not validated real-world safety or pricing measures.
+
 ## Next milestones
 
 1. Add second-by-second telemetry generation and robust event detection.
-2. Train exposure-aware Poisson frequency and Gamma severity baselines.
+2. Strengthen the existing Poisson frequency baseline and add Gamma severity.
 3. Compare the two-part model with a Tweedie pure-premium model.
 4. Add grouped and out-of-time validation, calibration and simulation-ground-truth recovery.
 5. Implement credibility weighting, uncertainty and an indicative technical-premium endpoint.

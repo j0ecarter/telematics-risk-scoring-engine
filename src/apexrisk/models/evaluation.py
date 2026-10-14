@@ -1,12 +1,12 @@
-"""Exercises for evaluating synthetic claim-frequency predictions on a later month.
+"""Evaluate synthetic claim-frequency predictions on a held-out later month.
 
 Run from the project folder: .venv/bin/python -m apexrisk.models.evaluation
-The prediction table works now; the evaluation functions are yours to complete.
+Report portfolio totals, Poisson deviance, and calibration by predicted risk group.
 """
 
+import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-import numpy as np
 
 from apexrisk.models.frequency import (
     EXPOSURE_COLUMN,
@@ -152,7 +152,6 @@ def main() -> None:
     predictions = build_prediction_table()
     print("Held-out month:", predictions["year_month"].iloc[0])
     print(predictions.head().to_string(index=False))
-    print("\nComplete TODO 1, then add: print(summarise_predictions(predictions))")
     print("\nPrediction summary:")
     print(summarise_predictions(predictions).to_string(index=False))
 

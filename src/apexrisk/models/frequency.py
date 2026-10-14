@@ -1,8 +1,9 @@
-"""Learning scaffold for a Poisson claim-frequency model; no model is fitted yet."""
+"""Exposure-aware Poisson claim-frequency baseline for synthetic data."""
 
 from pathlib import Path
-import statsmodels.api as sm
+
 import pandas as pd
+import statsmodels.api as sm
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "generated"
 
@@ -29,7 +30,7 @@ def build_training_table(features: pd.DataFrame, exposure: pd.DataFrame) -> pd.D
         ["driver_id", "year_month", *FEATURE_COLUMNS]
     ].copy()
 
-    # Januays driving becomes an input for predicting Febuary
+    # January's driving becomes an input for predicting February.
     previous_features["year_month"] = (
         pd.PeriodIndex(previous_features["year_month"], freq="M") + 1
     )
@@ -107,7 +108,7 @@ def fit_frequency_model(training_data: pd.DataFrame):
 
 
 def main() -> None:
-    """Start by inspecting the inputs before implementing the TODOs."""
+    """Fit on earlier months and compare latest-month predictions with a constant-rate baseline."""
     features, exposure = load_data()
     table = build_training_table(features, exposure)
 
