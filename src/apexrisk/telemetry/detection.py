@@ -4,9 +4,9 @@ The detector is the socket that a real telematics feed plugs into, so it deliber
 knows nothing about drivers, trips or DataFrames: plain arrays in, counts out. Adapting a
 stored table into arrays belongs to the caller, not here.
 
-Every function below is a stub. The docstrings state what each must do and the traps that
-apply; the implementations are the work. See ``docs/telemetry_contract.md`` for the data
-contract and ``configs/telemetry.yaml`` for the thresholds.
+The preprocessing functions are implemented independently of the remaining event-counting
+functions. See ``docs/telemetry_contract.md`` for the data contract and
+``configs/telemetry.yaml`` for the thresholds.
 """
 
 from __future__ import annotations
@@ -16,6 +16,11 @@ from dataclasses import dataclass
 import numpy as np
 
 from apexrisk.config import EventDetectionConfig
+from apexrisk.telemetry.schema import (
+    KILOMETRES_PER_HOUR_TO_METRES_PER_SECOND,
+    TELEMETRY_SAMPLE_INTERVAL_SECONDS,
+    wrapped_heading_change_degrees,
+)
 
 
 @dataclass(frozen=True)
@@ -70,7 +75,22 @@ def valid_sample_segments(is_gps_valid: np.ndarray) -> list[tuple[int, int]]:
     boundaries into index pairs. No Python loop over samples.
     """
 
-    raise NotImplementedError
+    validity = np.asarray(is_gps_valid)
+    if validity.ndim != 1:
+        raise ValueError("GPS validity must be a one-dimensional array")
+    if validity.dtype.kind != "b":
+        raise ValueError("GPS validity must be a boolean array")
+    if validity.size == 0:
+        return []
+
+    # Padding converts valid runs touching either end into ordinary transitions. A rising
+    # edge is a start index and the following falling edge is its exclusive stop index.
+    padded = np.concatenate(([False], validity, [False])).astype(np.int8)
+    boundaries = np.flatnonzero(np.diff(padded))
+    return [
+        (int(start), int(stop))
+        for start, stop in zip(boundaries[::2], boundaries[1::2], strict=True)
+    ]
 
 
 def smooth_speed_kmh(speed_kmh: np.ndarray, config: EventDetectionConfig) -> np.ndarray:
@@ -84,7 +104,19 @@ def smooth_speed_kmh(speed_kmh: np.ndarray, config: EventDetectionConfig) -> np.
     that reports hundreds of events on a trace containing none.
     """
 
-    raise NotImplementedError
+    speed = np.asarray(speed_kmh, dtype=np.float64)
+    if speed.ndim != 1:
+        raise ValueError("Speed must be a one-dimensional array")
+    if not np.isfinite(speed).all():
+        raise ValueError("A valid speed segment must contain only finite values")
+    if speed.size == 0:
+        return speed.copy()
+
+    window_size = config.smoothing_window_seconds
+    radius = window_size // 2
+    padded = np.pad(speed, (radius, radius), mode="edge")
+    windows = np.lib.stride_tricks.sliding_window_view(padded, window_size)
+    return np.median(windows, axis=1)
 
 
 def longitudinal_acceleration_ms2(smoothed_speed_kmh: np.ndarray) -> np.ndarray:
@@ -100,7 +132,23 @@ def longitudinal_acceleration_ms2(smoothed_speed_kmh: np.ndarray) -> np.ndarray:
        downstream index depends on that choice.
     """
 
-    raise NotImplementedError
+    speed_kmh = np.asarray(smoothed_speed_kmh, dtype=float)
+
+    if speed_kmh.ndim != 1:
+        raise ValueError("Speed must be a one-dimensional array")
+    if not np.isfinite(speed_kmh).all():
+        raise ValueError("Smoothed speed must contain only finite values")
+
+    speed_ms = speed_kmh * KILOMETRES_PER_HOUR_TO_METRES_PER_SECOND
+
+    acceleration = np.full(speed_ms.shape, np.nan)
+
+    if speed_ms.size >= 3:
+        acceleration[1:-1] = (speed_ms[2:] - speed_ms[:-2]) / (
+            2 * TELEMETRY_SAMPLE_INTERVAL_SECONDS
+        )
+
+    return acceleration
 
 
 def lateral_acceleration_ms2(
@@ -122,7 +170,55 @@ def lateral_acceleration_ms2(
        that this stays a pure kinematic conversion.
     """
 
-    raise NotImplementedError
+    speed_kmh = np.asarray(smoothed_speed_kmh, dtype=np.float64)
+    heading = np.asarray(heading_degrees, dtype=np.float64)
+    if speed_kmh.ndim != 1 or heading.ndim != 1:
+        raise ValueError("Speed and heading must be one-dimensional arrays")
+    if speed_kmh.shape != heading.shape:
+        raise ValueError("Speed and heading must have the same shape")
+    if not np.isfinite(speed_kmh).all() or not np.isfinite(heading).all():
+        raise ValueError("A valid telemetry segment must contain only finite values")
+
+    lateral_acceleration = np.full(speed_kmh.shape, np.nan)
+    if speed_kmh.size < 2:
+        return lateral_acceleration
+
+    heading_change_radians = np.deg2rad(wrapped_heading_change_degrees(heading))
+    yaw_rate_radians_per_second = (
+        heading_change_radians / TELEMETRY_SAMPLE_INTERVAL_SECONDS
+    )
+    pair_speed_ms = (
+        0.5
+        * (speed_kmh[:-1] + speed_kmh[1:])
+        * KILOMETRES_PER_HOUR_TO_METRES_PER_SECOND
+    )
+    lateral_acceleration[1:] = np.abs(pair_speed_ms * yaw_rate_radians_per_second)
+    return lateral_acceleration
+
+
+def trim_segment_edges(
+    signal: np.ndarray,
+    config: EventDetectionConfig,
+) -> np.ndarray:
+    """Return the signal interior that is reliable for event detection.
+
+    Centred smoothing and numerical differentiation depend on neighbouring samples. The
+    configured trim is therefore applied to both ends of every valid GPS segment, never
+    just to the beginning and end of the complete trip. A segment too short to retain an
+    interior returns an empty array. The input is never mutated and the returned data is a
+    copy, preventing later event logic from changing its preprocessing inputs by accident.
+    """
+
+    values = np.asarray(signal)
+    if values.ndim != 1:
+        raise ValueError("A telemetry signal must be a one-dimensional array")
+
+    trim = config.edge_trim_seconds
+    if trim == 0:
+        return values.copy()
+    if values.size <= 2 * trim:
+        return values[:0].copy()
+    return values[trim:-trim].copy()
 
 
 def count_banded_events(

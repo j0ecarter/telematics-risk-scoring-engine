@@ -46,3 +46,13 @@ def test_extreme_journey_is_bounded_to_four_hours_without_breaking_average_speed
 
     assert duration_seconds == MAXIMUM_TRIP_DURATION_SECONDS
     assert average_speed_kmh == pytest.approx(45.0)
+
+
+def test_very_short_journey_keeps_minimum_duration_and_coherent_average_speed() -> None:
+    duration_seconds, average_speed_kmh = _bounded_duration_and_average_speed(
+        distance_km=0.8,
+        target_average_speed_kmh=120.0,
+    )
+
+    assert duration_seconds == MINIMUM_TRIP_DURATION_SECONDS
+    assert average_speed_kmh == pytest.approx(16.0)

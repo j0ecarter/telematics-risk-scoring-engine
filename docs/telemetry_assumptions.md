@@ -3,8 +3,9 @@
 Recorded 26 September 2026. Scope: synthetic passenger cars sampled at 1 Hz.
 The settings are in `configs/telemetry.yaml`. They are a documented starting
 point for implementation, not a validated detector or evidence of real-world
-insurance risk. Task 02 establishes these assumptions; tasks 03-09 implement
-edge handling, detection, generation and performance checks.
+insurance risk. Task 02 established these assumptions; tasks 03 and 04 now enforce
+edge handling and signal preprocessing. Tasks 05-09 still cover event counting,
+detector completion, generation, pipeline integration and performance checks.
 
 ## Evidence and its limits
 
@@ -41,8 +42,10 @@ Never calculate a derivative or merge an event across an invalid GPS gap.
 For the current centred speed method, a valid segment shorter than five samples
 has no usable interior acceleration. Two interior samples require six raw
 samples, though those samples must also qualify to count as an event. The
-implementation and tests for these behaviours remain tasks 03-06. Edge trimming
-for acceleration does not by itself define how to count speeding exposure.
+preprocessing for these behaviours is implemented and tested. Event qualification,
+merging and complete detector acceptance tests remain tasks 05-06. Edge trimming
+for acceleration does not apply to speeding exposure, whose denominator is valid
+GPS seconds.
 
 ### Severity bands
 

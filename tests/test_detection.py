@@ -13,11 +13,9 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
-import pytest
 
 from apexrisk.config import EventDetectionConfig
 from apexrisk.telemetry.schema import KILOMETRES_PER_HOUR_TO_METRES_PER_SECOND
-
 
 # Baseline thresholds for tests. Deliberately round, so that a reader can see why an
 # expected count is what it is without doing arithmetic, and deliberately DIFFERENT between
@@ -88,7 +86,7 @@ def build_trace(segments: list[tuple[int, float]], initial_speed_kmh: float) -> 
 
     initial_speed_ms = initial_speed_kmh * KILOMETRES_PER_HOUR_TO_METRES_PER_SECOND
     speed_ms = initial_speed_ms + np.concatenate(
-        [[0,0], np.cumsum(per_second_acceleration_ms2)[:-1]]
+        [[0], np.cumsum(per_second_acceleration_ms2)[:-1]]
     )
 
     speed_ms = np.maximum(speed_ms, 0.0)
