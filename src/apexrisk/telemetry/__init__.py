@@ -5,7 +5,9 @@ from apexrisk.telemetry.schema import (
     TELEMETRY_COLUMN_DTYPES,
     TELEMETRY_COLUMNS,
     TELEMETRY_SAMPLE_INTERVAL_SECONDS,
+    TelemetryExposure,
     check_trace_invariants,
+    summarise_valid_exposure,
     validate_telemetry_frame,
     wrapped_heading_change_degrees,
 )
@@ -15,8 +17,10 @@ __all__ = [
     "TELEMETRY_COLUMNS",
     "TELEMETRY_COLUMN_DTYPES",
     "TELEMETRY_SAMPLE_INTERVAL_SECONDS",
+    "TelemetryExposure",
     "check_trace_invariants",
     "detect_events",
+    "summarise_valid_exposure",
     "validate_telemetry_frame",
     "wrapped_heading_change_degrees",
 ]

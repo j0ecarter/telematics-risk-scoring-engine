@@ -9,6 +9,31 @@ import pandas as pd
 
 SPEED_LIMIT_KMH = {"urban": 48.3, "rural": 96.6, "motorway": 112.7}
 BASE_SPEED_RATIO = {"urban": 0.55, "rural": 0.72, "motorway": 0.82}
+MINIMUM_TRIP_DURATION_SECONDS = 180
+MAXIMUM_TRIP_DURATION_SECONDS = 4 * 60 * 60
+
+
+def _bounded_duration_and_average_speed(
+    distance_km: float,
+    target_average_speed_kmh: float,
+) -> tuple[int, float]:
+    """Return a coherent duration and average speed for one synthetic trip.
+
+    A trip is one uninterrupted driving leg. Durations are bounded to three minutes through
+    four hours, then average speed is recomputed so distance, duration and average speed
+    continue to describe the same journey rather than three independently clipped values.
+    """
+
+    unbounded_duration_seconds = round(distance_km / target_average_speed_kmh * 3_600)
+    duration_seconds = int(
+        np.clip(
+            unbounded_duration_seconds,
+            MINIMUM_TRIP_DURATION_SECONDS,
+            MAXIMUM_TRIP_DURATION_SECONDS,
+        )
+    )
+    average_speed_kmh = distance_km / duration_seconds * 3_600
+    return duration_seconds, average_speed_kmh
 
 
 def _road_type(area_type: str, rng: np.random.Generator) -> str:
@@ -88,7 +113,7 @@ def generate_journeys(
             distance_km = float(np.clip(rng.lognormal(np.log(distance_scale), 0.58), 0.8, 180.0))
             traffic_factor = {"light": 1.0, "moderate": 0.85, "heavy": 0.65}[traffic_level]
             weather_factor = {"clear": 1.0, "rain": 0.90, "fog": 0.78, "ice": 0.65}[weather]
-            average_speed = float(
+            target_average_speed = float(
                 np.clip(
                     speed_limit
                     * BASE_SPEED_RATIO[road_type]
@@ -99,7 +124,10 @@ def generate_journeys(
                     speed_limit * 1.05,
                 )
             )
-            duration_seconds = int(max(180, round(distance_km / average_speed * 3_600)))
+            duration_seconds, average_speed = _bounded_duration_and_average_speed(
+                distance_km,
+                target_average_speed,
+            )
 
             speed_propensity = 0.17 + 0.72 * driver.aggressiveness
             has_speeding = rng.random() < speed_propensity

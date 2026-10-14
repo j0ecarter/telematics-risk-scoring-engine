@@ -11,6 +11,8 @@ enforced definition rather than against each other.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
@@ -51,6 +53,19 @@ PEAK_SPEED_RECONCILIATION_TOLERANCE_KMH = 0.5
 MAXIMUM_PLAUSIBLE_YAW_RATE_DEGREES_PER_SECOND = 30.0
 
 
+@dataclass(frozen=True)
+class TelemetryExposure:
+    """Amount of a trip for which GPS-derived behaviour was observable.
+
+    Event rates and speeding fractions must use these denominators. Using the complete
+    trip distance or duration would silently classify GPS dropouts as uneventful driving.
+    """
+
+    gps_valid_seconds: int
+    gps_valid_distance_km: float
+    gps_coverage_fraction: float
+
+
 def wrapped_heading_change_degrees(heading_degrees: np.ndarray) -> np.ndarray:
     """Return second-to-second heading changes, wrapped to the range (-180, 180].
 
@@ -75,15 +90,32 @@ def validate_telemetry_frame(telemetry: pd.DataFrame) -> None:
         raise ValueError(f"Telemetry is missing required columns: {missing_columns}")
     if telemetry.empty:
         raise ValueError("Telemetry must not be empty")
-    if telemetry[list(TELEMETRY_COLUMNS)].isna().to_numpy().any():
-        raise ValueError("Telemetry must not contain null values")
+    always_defined_columns = ["trip_id", "second_index", "is_gps_valid"]
+    if telemetry[always_defined_columns].isna().to_numpy().any():
+        raise ValueError(f"Telemetry must not contain null values in {always_defined_columns}")
 
-    speed = telemetry["speed_kmh"].to_numpy()
-    if (speed < 0.0).any():
+    is_gps_valid = telemetry["is_gps_valid"].to_numpy(dtype=bool)
+    speed = telemetry["speed_kmh"].to_numpy(dtype=np.float64)
+    heading = telemetry["heading_degrees"].to_numpy(dtype=np.float64)
+
+    # An invalid fix has no observed speed or heading. NaN is deliberate here: retaining a
+    # plausible-looking zero or last-known value would allow callers to mistake a placeholder
+    # for a measurement. The validity flag remains the authoritative segmentation mask.
+    if not np.isfinite(speed[is_gps_valid]).all() or not np.isfinite(
+        heading[is_gps_valid]
+    ).all():
+        raise ValueError("Valid GPS samples must have finite speed and heading values")
+    if not np.isnan(speed[~is_gps_valid]).all() or not np.isnan(
+        heading[~is_gps_valid]
+    ).all():
+        raise ValueError("Invalid GPS samples must store NaN for speed and heading")
+
+    valid_speed = speed[is_gps_valid]
+    if (valid_speed < 0.0).any():
         raise ValueError("speed_kmh must be non-negative, measurement noise included")
 
-    heading = telemetry["heading_degrees"].to_numpy()
-    if ((heading < 0.0) | (heading >= 360.0)).any():
+    valid_heading = heading[is_gps_valid]
+    if ((valid_heading < 0.0) | (valid_heading >= 360.0)).any():
         raise ValueError("heading_degrees must lie in the half-open interval [0, 360)")
 
     # second_index must run 0, 1, 2, ... without gaps within each trip. A gap would mean a
@@ -99,6 +131,45 @@ def validate_telemetry_frame(telemetry: pd.DataFrame) -> None:
             )
 
 
+def summarise_valid_exposure(
+    speed_kmh: np.ndarray,
+    is_gps_valid: np.ndarray,
+) -> TelemetryExposure:
+    """Return valid time, observed distance and coverage for one telemetry trace.
+
+    ``gps_valid_distance_km`` is the integral of observed speed over valid samples only.
+    It is the exposure denominator for GPS-derived event rates. Total trip distance stays
+    separate because it also includes periods during which the detector could observe
+    neither an event nor speeding.
+    """
+
+    speed = np.asarray(speed_kmh, dtype=np.float64)
+    validity = np.asarray(is_gps_valid)
+    if speed.ndim != 1 or validity.ndim != 1:
+        raise ValueError("Speed and GPS validity must be one-dimensional arrays")
+    if speed.shape != validity.shape:
+        raise ValueError("Speed and GPS validity must have the same shape")
+    if validity.dtype.kind != "b":
+        raise ValueError("GPS validity must be a boolean array")
+
+    valid_speed = speed[validity]
+    if not np.isfinite(valid_speed).all():
+        raise ValueError("Valid GPS samples must have finite speed values")
+    if (valid_speed < 0.0).any():
+        raise ValueError("Valid GPS speed must be non-negative")
+
+    gps_valid_seconds = int(validity.sum())
+    gps_valid_distance_km = float(
+        valid_speed.sum() * TELEMETRY_SAMPLE_INTERVAL_SECONDS / 3_600.0
+    )
+    gps_coverage_fraction = gps_valid_seconds / len(validity) if len(validity) else 0.0
+    return TelemetryExposure(
+        gps_valid_seconds=gps_valid_seconds,
+        gps_valid_distance_km=gps_valid_distance_km,
+        gps_coverage_fraction=gps_coverage_fraction,
+    )
+
+
 def check_trace_invariants(
     speed_kmh: np.ndarray,
     heading_degrees: np.ndarray,
@@ -107,10 +178,11 @@ def check_trace_invariants(
     duration_seconds: int,
     maximum_speed_kmh: float,
 ) -> None:
-    """Check one trace against the trip summary row it is supposed to explain.
+    """Check an internal true trace against the trip summary row it must explain.
 
-    These are the acceptance criteria for the trace generator, listed in section 6 of the
-    contract. Raises ``ValueError`` describing the first violated invariant.
+    The true trace contains no measurement noise or dropouts and is never persisted. Exact
+    distance reconciliation belongs here; a noisy observed trace is instead validated by
+    ``validate_telemetry_frame`` and measured with ``summarise_valid_exposure``.
     """
 
     speed = np.asarray(speed_kmh, dtype=np.float64)
@@ -118,6 +190,8 @@ def check_trace_invariants(
 
     if speed.shape != heading.shape:
         raise ValueError("speed and heading traces must have the same length")
+    if not np.isfinite(speed).all() or not np.isfinite(heading).all():
+        raise ValueError("True speed and heading traces must contain only finite values")
     if len(speed) != duration_seconds:
         raise ValueError(
             f"Trace has {len(speed)} samples but the trip summary records "

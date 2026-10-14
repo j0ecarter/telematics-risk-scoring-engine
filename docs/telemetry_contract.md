@@ -44,25 +44,29 @@ argument in section 5 is already the binding constraint. 1 Hz stays.
 |---|---|---|---|
 | `trip_id` | string | - | Foreign key to `trips.trip_id`. |
 | `second_index` | uint32 | s | 0-based offset from trip start. Contiguous, no gaps. |
-| `speed_kmh` | float32 | km/h | **Observed** ground speed as the device reports it, including measurement noise. Non-negative. |
-| `heading_degrees` | float32 | degrees | **Observed** compass heading in `[0, 360)`. Required for cornering detection. |
-| `is_gps_valid` | bool | - | `False` marks a dropped or degraded fix. Speed and heading are undefined for those samples. |
+| `speed_kmh` | float32 | km/h | **Observed** ground speed, including measurement noise. Finite and non-negative when GPS is valid; `NaN` otherwise. |
+| `heading_degrees` | float32 | degrees | **Observed** compass heading in `[0, 360)` when GPS is valid; `NaN` otherwise. |
+| `is_gps_valid` | bool | - | `False` marks a dropped or degraded fix and requires `NaN` speed and heading. |
 
 Speeds are expressed in km/h to match the existing trip summary columns
 (`average_speed_kmh`, `maximum_speed_kmh`). Conversion to m/s happens inside the
 detector and nowhere else, so that a unit error cannot cross a module boundary.
 
-### Why `second_index` is uint32 and not uint16
+### Invalid GPS representation
 
-The current journey generator clips trip distance at 180 km and clips average speed at a
-lower bound of 8 km/h, so its worst-case trip duration is `180 / 8 * 3600 = 81,000`
-seconds - about 22.5 hours. That overflows uint16 (65,535).
+Every second remains present and `second_index` stays contiguous. An invalid sample stores
+`NaN` for both observed channels rather than zero or a carried-forward value. This makes it
+impossible to mistake a placeholder for a genuine stationary or straight-driving sample.
+The detector splits on `is_gps_valid` before smoothing or differencing, so no calculated
+signal or merged event may cross an invalid interval.
 
-The probability of drawing such a trip is negligible, but the type must still be safe.
-It also points at a modelling problem worth fixing separately: **a 22-hour continuous
-trip is not a trip.** Consider capping trip duration in the generator, or splitting long
-journeys into legs with a rest gap between them. Logged as an open item, not part of
-this contract.
+### Journey duration and `second_index`
+
+A generated trip represents one uninterrupted driving leg and is limited to 3 minutes
+through 4 hours. If the initially calculated duration falls outside that range, duration is
+bounded and average speed is recomputed from distance divided by duration so the summary
+remains internally coherent. The existing `uint32` index is retained as a stable, generous
+representation that leaves room for future contract revisions and higher sampling rates.
 
 ### Deliberately excluded columns
 
@@ -88,8 +92,8 @@ The generator produces two channels internally:
 - a **true** kinematic trace - what the vehicle actually did; and
 - an **observed** trace - the true trace plus measurement noise and dropouts.
 
-The true trace feeds claim generation and is then discarded. Only the observed trace is
-written to disk or passed to the detector.
+The true trace feeds claim generation and exact trip-summary reconciliation, then is
+discarded. Only the observed trace is written to disk or passed to the detector.
 
 This mirrors the policy already applied to latent driver traits, and it is what makes
 the published features an honest *noisy measurement* of behaviour rather than a
@@ -193,10 +197,10 @@ These are the properties a generated trace must satisfy for the trip summary der
 from it to be truthful. They are the acceptance criteria for the generator and should be
 enforced by tests, not by inspection.
 
-For each trip, given its observed trace and its summary row:
+For each trip, the internal true trace and summary row must satisfy:
 
 1. **Length.** `len(trace) == duration_seconds`.
-2. **Distance reconciliation.** `sum(speed_kmh) / 3600 ≈ distance_km`, within 0.5%.
+2. **Distance reconciliation.** `sum(true_speed_kmh) / 3600 ≈ distance_km`, within 0.5%.
    At 1 Hz the distance is the integral of speed, so this is the single strongest check
    that generator and summary agree.
 3. **Peak speed.** `max(speed_kmh) ≈ maximum_speed_kmh`, within rounding tolerance.
@@ -213,15 +217,22 @@ Heading differences must be computed **wrapped**: the change from 359 degrees to
 is +2 degrees, not -358. Naive subtraction here is a reliable source of spurious
 cornering events.
 
+The published observed trace has a different contract because it contains noise and missing
+fixes:
+
+1. Valid samples have finite speed and heading; invalid samples have `NaN` for both.
+2. `gps_valid_seconds` is the count of valid samples.
+3. `gps_valid_distance_km` is `sum(valid observed speed) / 3600` at 1 Hz.
+4. `gps_coverage_fraction` is valid samples divided by total samples.
+5. Speeding fractions use valid seconds; detected-event rates use valid observed distance.
+6. If valid time or distance is zero, the corresponding behavioural rate is missing, not
+   zero. No observation must not be interpreted as safe behaviour.
+
 ---
 
-## 7. Deliberately left open
+## 7. Versioned assumptions
 
-These require research and are not settled by this document:
-
-- **Noise magnitude** for GPS speed and heading.
-- **Dropout rate and duration** - how often `is_gps_valid` is False, and for how long.
-- **Detection thresholds** for each severity band, and the speeding tolerance. Values
-  around 0.3g are commonly quoted for harsh braking but vary widely between vendors;
-  these must be researched, cited in `configs/telemetry.yaml`, and treated as versioned
-  assumptions rather than constants buried in code.
+Noise, dropout, detection thresholds and timing rules are recorded in
+`configs/telemetry.yaml` and explained in `docs/telemetry_assumptions.md`. They are project
+assumptions to test through sensitivity analysis, not validated hardware or actuarial
+calibration. Changing them requires a configuration version change and regression tests.
