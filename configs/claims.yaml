@@ -1,0 +1,38 @@
+claims:
+  # Population-average claim frequency before individual risk adjustments.
+  base_annual_claim_frequency: 0.22
+
+  # Coefficients act on the log claim-frequency scale. They intentionally make
+  # behavioural signals predictive without making outcomes deterministic.
+  aggressiveness_log_weight: 1.10
+  inattention_log_weight: 1.00
+  speeding_log_weight: 1.50
+  night_driving_log_weight: 0.70
+  hard_braking_log_weight: 0.18
+  young_driver_log_weight: 0.45
+  low_safety_log_weight: 0.25
+  distance_log_weight: 0.20
+  minimum_frequency_multiplier: 0.25
+  maximum_frequency_multiplier: 4.00
+
+  # Ordinary claims follow a lognormal distribution. A small Pareto-mixture
+  # component creates occasional large losses while retaining a hard cap.
+  severity_median_gbp: 3200
+  severity_log_sigma: 0.85
+  vehicle_value_elasticity: 0.20
+  large_loss_probability: 0.03
+  large_loss_minimum_gbp: 25000
+  large_loss_pareto_shape: 1.80
+  maximum_claim_cost_gbp: 500000
+
+  claim_type_probabilities:
+    collision: 0.62
+    single_vehicle: 0.20
+    weather: 0.10
+    bodily_injury: 0.08
+
+  claim_type_severity_multipliers:
+    collision: 1.00
+    single_vehicle: 0.85
+    weather: 0.70
+    bodily_injury: 2.50
