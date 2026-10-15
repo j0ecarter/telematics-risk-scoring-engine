@@ -247,7 +247,55 @@ def count_banded_events(
     touches a higher band.
     """
 
-    raise NotImplementedError
+    signal = np.asarray(signal_ms2, dtype=np.float64)
+    if signal.ndim != 1:
+        raise ValueError("A telemetry signal must be a one-dimensional array")
+
+    if np.isinf(signal).any():
+        raise ValueError("Event signal must not contain infinite values")
+
+    qualifying = np.isfinite(signal) & (signal >= thresholds["moderate"])
+
+    padded = np.concatenate(([False], qualifying, [False])).astype(np.int8)
+    boundaries = np.flatnonzero(np.diff(padded))
+
+    starts = boundaries[::2]
+    stops = boundaries[1::2]
+
+    durations = stops - starts
+    long_enough = durations >= config.minimum_event_duration_seconds
+
+    starts = starts[long_enough]
+    stops = stops[long_enough]
+
+    if starts.size > 0:
+        gaps = starts[1:] - stops[:-1]
+        split_positions = (
+            np.flatnonzero(gaps >= config.minimum_event_separation_seconds) + 1
+        )
+
+        group_starts = np.concatenate(([0], split_positions))
+        group_ends = np.concatenate((split_positions - 1, [starts.size - 1]))
+
+        starts = starts[group_starts]
+        stops = stops[group_ends]
+
+    counts = {"moderate": 0, "harsh": 0, "severe": 0}
+    if starts.size == 0:
+        return counts
+
+    finite_signal = np.where(np.isfinite(signal), signal, -np.inf)
+    peaks = np.maximum.reduceat(finite_signal, starts)
+
+    severe = peaks >= thresholds["severe"]
+    harsh = (peaks >= thresholds["harsh"]) & ~severe
+    moderate = ~(severe | harsh)
+
+    return {
+        "moderate": int(np.count_nonzero(moderate)),
+        "harsh": int(np.count_nonzero(harsh)),
+        "severe": int(np.count_nonzero(severe)),
+    }
 
 
 def count_speeding_seconds(
@@ -263,7 +311,17 @@ def count_speeding_seconds(
     requires the published figure to be described as a tolerance-adjusted estimate.
     """
 
-    raise NotImplementedError
+    speed = np.asarray(smoothed_speed_kmh, dtype=np.float64)
+    if speed.ndim != 1:
+        raise ValueError("Speed must be a one-dimensional array")
+
+    if np.isinf(speed).any():
+        raise ValueError("Speed must not contain infinite values")
+
+    limit_with_tolerance = speed_limit_kmh + config.speeding_tolerance_kmh
+    is_speeding = np.isfinite(speed) & (speed > limit_with_tolerance)
+
+    return int(np.count_nonzero(is_speeding))
 
 
 def detect_events(
@@ -283,8 +341,94 @@ def detect_events(
     output for identical input — it will be called once per trip across roughly a million
     trips, so it must also stay free of Python-level loops over samples.
 
-    Segments shorter than the smoothing window cannot produce a usable derivative. Decide
-    what happens to them and record the decision here.
+    Segments shorter than the smoothing window still contribute speeding seconds, but are
+    skipped for acceleration-based event detection because they have no usable derivative.
     """
 
-    raise NotImplementedError
+    speed = np.asarray(speed_kmh, dtype=np.float64)
+    heading = np.asarray(heading_degrees, dtype=np.float64)
+    validity = np.asarray(is_gps_valid)
+
+    if speed.ndim != 1 or heading.ndim != 1 or validity.ndim != 1:
+        raise ValueError("Telemetry inputs must be one-dimensional arrays")
+
+    if speed.shape != heading.shape or speed.shape != validity.shape:
+        raise ValueError("Speed, heading and GPS validity must have the same shape")
+
+    if validity.dtype.kind != "b":
+        raise ValueError("GPS validity must be a boolean array")
+
+    if not np.isfinite(speed[validity]).all():
+        raise ValueError("Valid speed samples must contain only finite values")
+
+    if not np.isfinite(heading[validity]).all():
+        raise ValueError("Valid heading samples must contain only finite values")
+
+    if not np.isfinite(speed_limit_kmh) or speed_limit_kmh < 0:
+        raise ValueError("Speed limit must be a finite non-negative value")
+
+    brake_totals = {"moderate": 0, "harsh": 0, "severe": 0}
+    accel_totals = {"moderate": 0, "harsh": 0, "severe": 0}
+    corner_totals = {"moderate": 0, "harsh": 0, "severe": 0}
+    speeding_seconds = 0
+
+    for start, stop in valid_sample_segments(validity):
+        segment_speed = speed[start:stop]
+        segment_heading = heading[start:stop]
+        smoothed_speed = smooth_speed_kmh(segment_speed, config)
+
+        speeding_seconds += count_speeding_seconds(
+            smoothed_speed,
+            speed_limit_kmh,
+            config,
+        )
+
+        if segment_speed.size < config.smoothing_window_seconds:
+            continue
+
+        longitudinal = longitudinal_acceleration_ms2(smoothed_speed)
+        braking = -longitudinal
+        cornering = lateral_acceleration_ms2(smoothed_speed, segment_heading)
+        cornering = np.where(
+            smoothed_speed >= config.cornering_minimum_speed_kmh,
+            cornering,
+            np.nan,
+        )
+
+        braking = trim_segment_edges(braking, config)
+        acceleration = trim_segment_edges(longitudinal, config)
+        cornering = trim_segment_edges(cornering, config)
+
+        brake_counts = count_banded_events(
+            braking,
+            config.braking_thresholds_ms2,
+            config,
+        )
+        accel_counts = count_banded_events(
+            acceleration,
+            config.acceleration_thresholds_ms2,
+            config,
+        )
+        corner_counts = count_banded_events(
+            cornering,
+            config.cornering_thresholds_ms2,
+            config,
+        )
+
+        for band in ("moderate", "harsh", "severe"):
+            brake_totals[band] += brake_counts[band]
+            accel_totals[band] += accel_counts[band]
+            corner_totals[band] += corner_counts[band]
+
+    return EventCounts(
+        brake_events_moderate=brake_totals["moderate"],
+        brake_events_harsh=brake_totals["harsh"],
+        brake_events_severe=brake_totals["severe"],
+        accel_events_moderate=accel_totals["moderate"],
+        accel_events_harsh=accel_totals["harsh"],
+        accel_events_severe=accel_totals["severe"],
+        corner_events_moderate=corner_totals["moderate"],
+        corner_events_harsh=corner_totals["harsh"],
+        corner_events_severe=corner_totals["severe"],
+        speeding_seconds=speeding_seconds,
+    )
