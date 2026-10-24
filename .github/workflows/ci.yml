@@ -27,7 +27,5 @@ jobs:
       - name: Check code style
         run: ruff check .
 
-      # Tasks 05-06 contain 18 explicit NotImplementedError specifications. They remain
-      # visible in the repository but are excluded until event counting is implemented.
-      - name: Run completed tests
-        run: pytest --ignore=tests/test_detection.py
+      - name: Run all tests
+        run: pytest

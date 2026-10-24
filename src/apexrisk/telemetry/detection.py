@@ -4,8 +4,8 @@ The detector is the socket that a real telematics feed plugs into, so it deliber
 knows nothing about drivers, trips or DataFrames: plain arrays in, counts out. Adapting a
 stored table into arrays belongs to the caller, not here.
 
-The preprocessing functions are implemented independently of the remaining event-counting
-functions. See ``docs/telemetry_contract.md`` for the data contract and
+Preprocessing and event counting compose into a stateless detector.
+See ``docs/telemetry_contract.md`` for the data contract and
 ``configs/telemetry.yaml`` for the thresholds.
 """
 
@@ -231,7 +231,7 @@ def count_banded_events(
     This is the core of the detector and where the subtle bugs live. A four-second heavy
     brake is one event, not four.
 
-    Suggested algorithm, all vectorised:
+    Algorithm, vectorised over samples:
 
     1. Build a boolean mask of samples at or beyond the band's threshold.
     2. Find run boundaries by differencing the mask and taking the non-zero positions.
@@ -240,11 +240,9 @@ def count_banded_events(
     4. Merge runs separated by less than ``config.minimum_event_separation_seconds``.
     5. Count what remains.
 
-    Bands must come out mutually exclusive: an event reaching the severe threshold is
-    counted in ``severe`` only, never additionally in ``harsh`` or ``moderate``. Decide
-    whether to achieve that by classifying each run by its peak magnitude or by subtracting
-    higher bands afterwards, and say which here — the two differ for a run that briefly
-    touches a higher band.
+    Each merged event is classified once by its peak within [start, stop). A brief higher
+    peak inside a qualifying event can raise its band; a rejected spike outside that
+    interval cannot. Severity bands are mutually exclusive.
     """
 
     signal = np.asarray(signal_ms2, dtype=np.float64)
@@ -285,7 +283,11 @@ def count_banded_events(
         return counts
 
     finite_signal = np.where(np.isfinite(signal), signal, -np.inf)
-    peaks = np.maximum.reduceat(finite_signal, starts)
+    # Alternating starts and stops bound every event's reduction. Using starts alone
+    # includes rejected spikes in the gaps or tail and can falsely raise severity.
+    # The sentinel makes a stop at len(signal) a valid reduction index.
+    event_boundaries = np.column_stack((starts, stops)).ravel()
+    peaks = np.maximum.reduceat(np.append(finite_signal, -np.inf), event_boundaries)[::2]
 
     severe = peaks >= thresholds["severe"]
     harsh = (peaks >= thresholds["harsh"]) & ~severe
