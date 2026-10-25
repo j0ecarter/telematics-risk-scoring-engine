@@ -156,17 +156,95 @@ make test
 python -m pytest tests/test_detection.py
 ```
 
-As verified on 25 October 2026, all 113 project tests pass, including 57 detector
-checks and 10 demo-generator checks. Coverage includes severity boundaries, duration and separation rules,
-GPS gaps, speeding tolerance, heading wrap, invalid inputs and deterministic
-behaviour. CI runs the full test suite and Ruff.
+As verified on 25 October 2026, all 133 project tests pass, including 57 detector
+checks, 19 demo checks and 11 CLI checks. Coverage includes severity boundaries, duration and
+separation rules, GPS gaps, speeding tolerance, heading wrap, invalid inputs and
+deterministic behaviour. CI runs the full test suite and Ruff.
 
 `apexrisk.telemetry.demo.build_demo_scenarios()` now creates six deterministic,
 three-minute traces: steady driving, braking, acceleration, cornering, speeding
 and GPS dropout. Each scenario includes its name, description, speed limit and a
 validated telemetry table. The generator does not write files or run detection.
-Expected-result checks, saved demo outputs and a CLI command remain to be added
-before the telemetry demonstration is complete.
+Six integration checks run these traces through the detector using
+`configs/telemetry.yaml` and compare every result field with independently specified
+expectations: one harsh event for each manoeuvre, 29 speeding seconds for the
+speeding trace, and zero events or speeding for steady driving and GPS dropout.
+All other fields must be zero. Changes to the configuration require explicit review
+of these expectations; detector unit tests continue to use independent settings.
+
+Run the complete demo from the repository root after installing the project and
+activating the virtual environment:
+
+```bash
+python -m apexrisk telemetry-demo \
+  --config configs/telemetry.yaml \
+  --output data/generated/telemetry_demo
+```
+
+These paths are the defaults, so `python -m apexrisk telemetry-demo` does the same
+thing. The installed `apexrisk telemetry-demo` entry point also works. Paths are
+relative to your current directory unless absolute paths are supplied.
+Use `python -m apexrisk telemetry-demo --help` to see the options.
+
+With the supplied configuration, the output is:
+
+```text
+PASS: steady
+PASS: braking
+PASS: acceleration
+PASS: cornering
+PASS: speeding
+PASS: gps_dropout
+6/6 scenarios passed.
+Results saved to: data/generated/telemetry_demo/summary.json
+```
+
+The exit code is `0` when all comparisons pass, `1` when a comparison fails, and
+`2` for command usage, configuration or file errors. Failed comparisons still save
+their evidence and print each mismatched field. For example, using a separate
+configuration with `speeding_tolerance_kmh: 10.0` reports:
+
+```text
+FAIL: speeding
+  speeding_seconds: expected 29, got 0
+```
+
+This is a disagreement with the fixed baseline expectations, not necessarily a
+detector defect. Invalid or missing configuration is reported with its path and
+an error message rather than a traceback.
+
+The same workflow is available directly from Python:
+
+```python
+from apexrisk.config import EventDetectionConfig
+from apexrisk.telemetry.demo import run_telemetry_demo
+
+config = EventDetectionConfig.from_yaml("configs/telemetry.yaml")
+summary = run_telemetry_demo(config, "data/generated/telemetry_demo")
+print(summary["all_passed"])
+```
+
+This writes six observed-telemetry Parquet files (`steady.parquet`,
+`braking.parquet`, `acceleration.parquet`, `cornering.parquet`, `speeding.parquet`
+and `gps_dropout.parquet`) and `summary.json`. The summary records detector
+settings, expected and actual results, field-level mismatches, GPS valid time and
+distance, GPS coverage, and individual and overall pass/fail status. Missing GPS
+readings remain `NaN` in Parquet; no hidden truth channels are saved.
+
+Repeated runs replace these seven files, leaving unrelated files alone. JSON uses
+relative filenames and no timestamp, so identical settings produce identical
+summaries and telemetry values across runs and output directories. The generated
+files are ignored by Git. Changed detector settings are compared with the same
+fixed expectations; mismatches are saved with `all_passed: false` rather than
+silently changing the expected answers.
+
+The saved-output and CLI tests cover Parquet round trips, repeatability across
+runs and directories, deliberate comparison failure, help and default options,
+invalid/missing configuration, and output-file errors. Run these checks with:
+
+```bash
+python -m pytest tests/test_telemetry_demo.py tests/test_cli.py
+```
 
 ## API and Docker
 
@@ -243,7 +321,7 @@ event detection, a verified API container, and clear results and limitations.
   counts, plus speeding seconds, with GPS-gap handling.
 - [x] **02 — Detector tests:** verify normal, boundary and regression cases and
   include all detector tests in CI.
-- [ ] **03 — Deterministic telemetry demonstration:** generate a steady-driving
+- [x] **03 — Deterministic telemetry demonstration:** generate a steady-driving
   baseline and controlled braking, acceleration, cornering, speeding and GPS-dropout
   scenarios; compare expected and detected results; provide a reproducible command
   and saved traces/results. Use a fixed seed wherever randomness is introduced.
