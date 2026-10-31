@@ -22,7 +22,7 @@ for completion criteria and deferred work.
 | Synthetic population pipeline | Generates drivers, vehicles, trip summaries, behavioural features, policy exposure and claims |
 | Frequency baseline | Poisson GLM using previous-month behaviour and insured exposure; latest-month evaluation against a constant-rate benchmark |
 | API | `/health` liveness check and generated `/docs`; no journey-analysis or scoring endpoint |
-| Docker | Single-service Dockerfile and commands; end-to-end container verification remains open |
+| Docker | Local image build, `/health`, `/docs`, container shutdown and six-scenario demo verified on 31 October 2026 |
 
 The demo and population pipeline are separate workflows. The population pipeline
 simulates event counts directly; it does **not** run the telemetry detector.
@@ -105,6 +105,10 @@ The default dataset is a small smoke check. Recovering synthetic relationships
 does not demonstrate real-world predictive performance. `configs/model.yaml`
 records status only; the model scripts do not load it as training configuration.
 
+See [Results and limitations](docs/results.md) for the dated evidence, held-out
+benchmark comparison and calibration. On the default run, the Poisson model does
+not beat the constant-rate benchmark; the held-out month contains only one claim.
+
 ## API and Docker
 
 Start the local API:
@@ -139,10 +143,12 @@ make docker-build
 make docker-run
 ```
 
-Run the two `curl` checks again from another terminal. The Dockerfile is present;
-a successful build and running-container check still need to be recorded before
-the Docker milestone is complete. A healthy service does not mean the telemetry
-detector or model is exposed through the API.
+Run the two `curl` checks again from another terminal. The image build and local
+container checks were verified on 31 October 2026; see the
+[commands and observed results](docs/results.md#docker-verification). If host port
+8000 is occupied, use `docker run --rm --name apexrisk-api -p 127.0.0.1:8001:8000 apexrisk:local` on one line and check `http://localhost:8001/health` and `/docs`.
+A healthy service does not mean the telemetry detector or model is exposed through
+the API.
 
 ## Repository layout
 

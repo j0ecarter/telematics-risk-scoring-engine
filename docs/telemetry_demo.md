@@ -112,3 +112,6 @@ At 1 Hz, short events can be missed and smoothing can reduce peaks. GPS gaps rem
 observations; the detector must not infer an event through them.
 
 For the current finish line and deferred work, see [Project scope](scope.md).
+
+The [consolidated results](results.md) record a dated demo run alongside the
+separate held-out frequency-model evaluation and container verification.

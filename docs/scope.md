@@ -20,8 +20,8 @@ Neither workflow establishes real-world safety, accident risk or pricing accurac
 | 01 — Event counting | Implemented | Banded braking, acceleration and cornering counts; speeding seconds; GPS-gap handling |
 | 02 — Detector tests | Implemented | Normal, boundary, noise and regression cases included in the full CI suite |
 | 03 — Deterministic telemetry demo | Implemented | Six fixed scenarios; expected/actual comparisons; one command; saved Parquet traces and JSON results |
-| 04 — Docker verification | Open | Build and run the container; verify `/health` and `/docs`; record the commands and observed results |
-| 05 — Results and limitations | Open | Consolidate demo evidence and held-out model results, including benchmark comparison and synthetic-data/sampling limitations |
+| 04 — Docker verification | Verified | Build, health/docs responses, shutdown and containerised demo checked on 31 October 2026; [recorded evidence](results.md#docker-verification) |
+| 05 — Results and limitations | Complete | [Dated results](results.md), saved evidence, held-out benchmark comparison, calibration and synthetic-data/sampling limits |
 | 06 — Repository polish | Open | Check setup, examples, links and status against the finished implementation; confirm final tests and lint |
 
 Implemented milestones describe current code. The remaining milestones must not

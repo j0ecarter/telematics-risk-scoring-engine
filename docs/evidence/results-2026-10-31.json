@@ -1,0 +1,428 @@
+{
+  "run_date": "2026-10-31",
+  "source_commit": "7eebf94264090daa73fa927ffe52f4a1712540fa",
+  "data_classification": "fully_synthetic",
+  "runtime_versions": {
+    "python": "3.14.8",
+    "numpy": "2.5.3",
+    "pandas": "3.0.5",
+    "statsmodels": "0.15.0",
+    "pyarrow": "23.0.1"
+  },
+  "population_manifest": {
+    "data_classification": "fully_synthetic",
+    "intended_use": "methodological_demonstration_only",
+    "production_pricing_approved": false,
+    "created_at_utc": "2026-10-31T15:22:04.048337+00:00",
+    "simulation_config": {
+      "seed": 20260803,
+      "n_drivers": 250,
+      "start_date": "2025-01-01",
+      "months": 3,
+      "mean_trips_per_driver_per_month": 18.0
+    },
+    "claims_config": {
+      "base_annual_claim_frequency": 0.22,
+      "aggressiveness_log_weight": 1.1,
+      "inattention_log_weight": 1.0,
+      "speeding_log_weight": 1.5,
+      "night_driving_log_weight": 0.7,
+      "hard_braking_log_weight": 0.18,
+      "young_driver_log_weight": 0.45,
+      "low_safety_log_weight": 0.25,
+      "distance_log_weight": 0.2,
+      "minimum_frequency_multiplier": 0.25,
+      "maximum_frequency_multiplier": 4.0,
+      "severity_median_gbp": 3200.0,
+      "severity_log_sigma": 0.85,
+      "vehicle_value_elasticity": 0.2,
+      "large_loss_probability": 0.03,
+      "large_loss_minimum_gbp": 25000.0,
+      "large_loss_pareto_shape": 1.8,
+      "maximum_claim_cost_gbp": 500000.0,
+      "claim_type_probabilities": {
+        "collision": 0.62,
+        "single_vehicle": 0.2,
+        "weather": 0.1,
+        "bodily_injury": 0.08
+      },
+      "claim_type_severity_multipliers": {
+        "collision": 1.0,
+        "single_vehicle": 0.85,
+        "weather": 0.7,
+        "bodily_injury": 2.5
+      }
+    },
+    "row_counts": {
+      "drivers": 250,
+      "vehicles": 250,
+      "trips": 13673,
+      "trip_features": 13673,
+      "driver_month_features": 750,
+      "policy_exposure": 750,
+      "claims": 10
+    },
+    "files": {
+      "drivers": "drivers.parquet",
+      "vehicles": "vehicles.parquet",
+      "trips": "trips.parquet",
+      "trip_features": "trip_features.parquet",
+      "driver_month_features": "driver_month_features.parquet",
+      "policy_exposure": "policy_exposure.parquet",
+      "claims": "claims.parquet"
+    },
+    "private_latent_traits_published": false
+  },
+  "model_split": {
+    "features": [
+      "speeding_time_fraction",
+      "hard_brakes_per_100km",
+      "night_driving_fraction"
+    ],
+    "excluded_rows_missing_history": 250,
+    "training_target_months": [
+      "2025-02"
+    ],
+    "training_rows": 250,
+    "training_claims": 7,
+    "training_exposure_years": 19.164955509924706,
+    "held_out_target_month": "2025-03",
+    "held_out_feature_month": "2025-02",
+    "held_out_rows": 250,
+    "held_out_claims": 1,
+    "held_out_zero_claim_rows": 249,
+    "held_out_exposure_years": 21.218343600273784,
+    "drivers_in_both_splits": 250,
+    "benchmark_annual_rate": 0.3652500000000001,
+    "model_converged": true
+  },
+  "model_metrics": [
+    {
+      "method": "Poisson model",
+      "actual_claims": 1,
+      "predicted_claims": 9.09054882634144,
+      "actual_annual_rate": 0.04712903225806452,
+      "predicted_annual_rate": 0.4284287688801563,
+      "observed_to_expected": 0.11000435937402665,
+      "mean_poisson_deviance": 0.09875494118551453
+    },
+    {
+      "method": "Benchmark",
+      "actual_claims": 1,
+      "predicted_claims": 7.750000000000002,
+      "actual_annual_rate": 0.04712903225806452,
+      "predicted_annual_rate": 0.36525000000000013,
+      "observed_to_expected": 0.1290322580645161,
+      "mean_poisson_deviance": 0.08179014459597593
+    }
+  ],
+  "calibration_by_predicted_risk": [
+    {
+      "risk_group": 1,
+      "driver_months": 84,
+      "exposure_years": 7.129363449691992,
+      "actual_claims": 0,
+      "predicted_claims": 0.8153898759547944,
+      "actual_annual_rate": 0.0,
+      "predicted_annual_rate": 0.11437064216301408
+    },
+    {
+      "risk_group": 2,
+      "driver_months": 83,
+      "exposure_years": 7.044490075290897,
+      "actual_claims": 1,
+      "predicted_claims": 1.5466937710262394,
+      "actual_annual_rate": 0.14195491643995337,
+      "predicted_annual_rate": 0.21956078502422616
+    },
+    {
+      "risk_group": 3,
+      "driver_months": 83,
+      "exposure_years": 7.044490075290897,
+      "actual_claims": 0,
+      "predicted_claims": 6.7284651793604064,
+      "actual_annual_rate": 0.0,
+      "predicted_annual_rate": 0.9551387123052423
+    }
+  ],
+  "telemetry_demo": {
+    "all_passed": true,
+    "data_classification": "fully_synthetic",
+    "detector_config": {
+      "acceleration_thresholds_ms2": {
+        "harsh": 2.943,
+        "moderate": 1.962,
+        "severe": 4.905
+      },
+      "braking_thresholds_ms2": {
+        "harsh": 2.943,
+        "moderate": 1.962,
+        "severe": 4.905
+      },
+      "cornering_minimum_speed_kmh": 20.0,
+      "cornering_thresholds_ms2": {
+        "harsh": 4.12,
+        "moderate": 2.943,
+        "severe": 5.886
+      },
+      "edge_trim_seconds": 2,
+      "minimum_event_duration_seconds": 2,
+      "minimum_event_separation_seconds": 3,
+      "smoothing_window_seconds": 3,
+      "speeding_tolerance_kmh": 5.0
+    },
+    "expectation_basis": "Fixed baseline demo expectations; changed settings may fail.",
+    "raw_truth_channels_published": false,
+    "sample_interval_seconds": 1,
+    "scenarios": [
+      {
+        "actual": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "description": "Constant 50 km/h and heading under a 60 km/h limit.",
+        "expected": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "gps_exposure": {
+          "gps_coverage_fraction": 1.0,
+          "gps_valid_distance_km": 2.5,
+          "gps_valid_seconds": 180
+        },
+        "mismatches": {},
+        "name": "steady",
+        "passed": true,
+        "sample_count": 180,
+        "speed_limit_kmh": 60.0,
+        "telemetry_file": "steady.parquet"
+      },
+      {
+        "actual": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 1,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "description": "Speed falls from 72 to 28.8 km/h between seconds 60 and 64.",
+        "expected": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 1,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "gps_exposure": {
+          "gps_coverage_fraction": 1.0,
+          "gps_valid_distance_km": 2.189999975628323,
+          "gps_valid_seconds": 180
+        },
+        "mismatches": {},
+        "name": "braking",
+        "passed": true,
+        "sample_count": 180,
+        "speed_limit_kmh": 80.0,
+        "telemetry_file": "braking.parquet"
+      },
+      {
+        "actual": {
+          "accel_events_harsh": 1,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "description": "Speed rises from 28.8 to 72 km/h between seconds 60 and 64.",
+        "expected": {
+          "accel_events_harsh": 1,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "gps_exposure": {
+          "gps_coverage_fraction": 1.0,
+          "gps_valid_distance_km": 2.8499999872843422,
+          "gps_valid_seconds": 180
+        },
+        "mismatches": {},
+        "name": "acceleration",
+        "passed": true,
+        "sample_count": 180,
+        "speed_limit_kmh": 80.0,
+        "telemetry_file": "acceleration.parquet"
+      },
+      {
+        "actual": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 1,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "description": "At 60 km/h, heading turns from 90 to 150 degrees over four seconds.",
+        "expected": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 1,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "gps_exposure": {
+          "gps_coverage_fraction": 1.0,
+          "gps_valid_distance_km": 3.0,
+          "gps_valid_seconds": 180
+        },
+        "mismatches": {},
+        "name": "cornering",
+        "passed": true,
+        "sample_count": 180,
+        "speed_limit_kmh": 80.0,
+        "telemetry_file": "cornering.parquet"
+      },
+      {
+        "actual": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 29
+        },
+        "description": "Gentle ramps from 50 to 70 km/h and back, with a 60 km/h limit.",
+        "expected": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 29
+        },
+        "gps_exposure": {
+          "gps_coverage_fraction": 1.0,
+          "gps_valid_distance_km": 2.7222222222222223,
+          "gps_valid_seconds": 180
+        },
+        "mismatches": {},
+        "name": "speeding",
+        "passed": true,
+        "sample_count": 180,
+        "speed_limit_kmh": 60.0,
+        "telemetry_file": "speeding.parquet"
+      },
+      {
+        "actual": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "description": "Five missing fixes separate 72 km/h eastbound and 36 km/h southbound.",
+        "expected": {
+          "accel_events_harsh": 0,
+          "accel_events_moderate": 0,
+          "accel_events_severe": 0,
+          "brake_events_harsh": 0,
+          "brake_events_moderate": 0,
+          "brake_events_severe": 0,
+          "corner_events_harsh": 0,
+          "corner_events_moderate": 0,
+          "corner_events_severe": 0,
+          "speeding_seconds": 0
+        },
+        "gps_exposure": {
+          "gps_coverage_fraction": 0.9722222222222222,
+          "gps_valid_distance_km": 2.35,
+          "gps_valid_seconds": 175
+        },
+        "mismatches": {},
+        "name": "gps_dropout",
+        "passed": true,
+        "sample_count": 180,
+        "speed_limit_kmh": 80.0,
+        "telemetry_file": "gps_dropout.parquet"
+      }
+    ],
+    "schema_version": 1
+  },
+  "sha256": {
+    "configs/claims.yaml": "d0794075aee97559c01a25877539f8182cebf9b1c12991cfb4c5783f6b9d9dd7",
+    "configs/features.yaml": "eb0ff04f15dea67e7af9d1b48cbbd82d9aee2e85a1695e0e241f26363618902d",
+    "configs/model.yaml": "9958ccce6ea23d70acd52696451f617d5f55af64871e7fc3252000580d0ce5a5",
+    "configs/pricing.yaml": "f14b9a22b51539600211728a3d0db883c14778d6fd38b24906343da831a1dff9",
+    "configs/simulation.yaml": "99a38325ff68e8261d82fc7e17c116f7ef8d5455a9f77e3420b05d1636e4c22f",
+    "configs/telemetry.yaml": "f372987cf3c21e077ddf926cb0ba3ed6cce914d4514826b3d965e36977819db8",
+    "src/apexrisk/models/__init__.py": "88849a1fcad39c288f9bc6c27a2a2216d68eaf0f4223979d671038bb0a16d1d7",
+    "src/apexrisk/models/evaluation.py": "8a5b9454d01a41448ef346d7bec12f49058b1d7ae74d87a9f38d6ad04107d73e",
+    "src/apexrisk/models/frequency.py": "c04a1de7a24b826024ca7f65b18631c700807d7c9697d9546c422721cfeb34e5"
+  },
+  "validation": {
+    "unique_driver_month_keys": true,
+    "exposure_claim_counts_equal_claim_rows": true,
+    "evaluated_fresh_generated_inputs_in_isolated_directory": true,
+    "held_out_features_match_previous_calendar_month": true,
+    "predictions_match_manual_log_link_calculation": true,
+    "mean_poisson_deviance_matches_statsmodels_family": true
+  }
+}
