@@ -1,7 +1,7 @@
 """Minimal API surface for container and deployment verification."""
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from apexrisk import __version__
 
@@ -12,7 +12,29 @@ class HealthResponse(BaseModel):
     version: str
     data_mode: str
     production_pricing: bool
+class TraceRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        allow_inf_nan=False,
+    )
 
+    speed_limit_kmh: float = Field(ge=0)
+
+    speed_kmh: list[float | None] = Field(
+        min_length=1,
+        max_length=600,
+    )
+
+    heading_degrees: list[float | None] = Field(
+        min_length=1,
+        max_length=600,
+    )
+
+    is_gps_valid: list[bool] = Field(
+        min_length=1,
+        max_length=600,
+    )
 
 app = FastAPI(
     title="ApexRisk API",
