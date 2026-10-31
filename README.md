@@ -192,3 +192,26 @@ To run focused demo checks:
 ```bash
 python -m pytest tests/test_detection.py tests/test_telemetry_demo.py tests/test_cli.py
 ```
+
+## Potential improvements
+
+After the [current completion milestones](docs/scope.md) are finished, the following
+targets could extend the project. They are optional directions, ordered from
+smaller improvements towards larger extensions, rather than additional completion
+requirements.
+
+| Area | Improvement target | Evidence of completion |
+|---|---|---|
+| Detector robustness | Vary smoothing, thresholds, noise and GPS dropout on controlled traces | A reproducible sensitivity report showing false detections, missed events and merged events against known expectations |
+| Journey visualisation | Plot speed, heading, GPS gaps and detected manoeuvre intervals | A generated report that makes each demo result inspectable alongside its input trace |
+| Container checks | Automate image build and service checks in CI | A clean CI run starts the container and verifies `/health` and `/docs` |
+| Pipeline integration | Generate observed telemetry per trip and derive population trip summaries through the detector | Seeded runs reconcile distance and duration, use valid GPS exposure, and process traces without retaining the full population's telemetry |
+| Model validation | Evaluate larger synthetic samples across multiple seeds and add a held-out-driver split | Report Poisson deviance, calibration and uncertainty against the constant-rate benchmark for both time and driver holdouts |
+| External validation | Compare with appropriately licensed real journeys or compatible published benchmarks | Document data provenance, sampling and feature compatibility, and where synthetic assumptions disagree with observed data |
+| Journey-analysis API | Accept a validated journey and return event counts and valid GPS exposure | Endpoint tests cover valid journeys, missing GPS, malformed inputs and consistent results with the Python detector |
+
+Further research could explore Gamma severity and Tweedie pure-premium models,
+credibility weighting, fairness and drift. These would need their own evaluation
+criteria before becoming project commitments. Pricing or deployment extensions
+would not, by themselves, establish real-world predictive accuracy or production
+readiness.
