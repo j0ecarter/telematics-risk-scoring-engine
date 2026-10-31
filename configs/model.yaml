@@ -1,10 +1,11 @@
 # Status metadata only; the model scripts do not yet load this file.
 model:
-  status: "partially_implemented"
+  status: "baseline_implemented"
   implemented_baselines:
     - poisson_frequency
-  planned_baselines:
+  # Optional extensions, not requirements for the current completion scope.
+  future_baselines:
     - gamma_severity
     - tweedie_pure_premium
   split_strategy: "latest_month_holdout"
-  planned_split_strategy: "grouped_and_out_of_time"
+  future_split_strategy: "grouped_and_out_of_time"

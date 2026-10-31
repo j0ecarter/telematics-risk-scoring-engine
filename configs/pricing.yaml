@@ -1,5 +1,8 @@
+# Archived design assumptions for an optional future extension.
+# No current pipeline, model or API reads this file or produces a premium.
 pricing:
   status: "not_implemented"
+  scope: "future_extension"
   output_label: "indicative_technical_premium"
   expense_loading: 0.20
   risk_margin: 0.08

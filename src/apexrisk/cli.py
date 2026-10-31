@@ -18,7 +18,7 @@ from apexrisk.telemetry.demo import run_telemetry_demo
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="apexrisk",
-        description="Synthetic-first telematics risk-scoring demonstrator",
+        description="Synthetic telematics event detection and claim-frequency demonstration",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     pipeline = subparsers.add_parser(

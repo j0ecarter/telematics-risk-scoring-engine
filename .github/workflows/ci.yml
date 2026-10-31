@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, telemetry-steps-03-04]
+    branches: [main]
   pull_request:
 
 permissions:

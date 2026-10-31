@@ -56,8 +56,8 @@ telemetry:
     harsh: 4.120
     severe: 5.886
 
-# DESIGN SETTINGS for the future trace generator (task 07).
-# Not loaded by EventDetectionConfig and not yet used by the pipeline.
+# DESIGN SETTINGS for an optional future population trace generator.
+# Not loaded by EventDetectionConfig, the deterministic demo or the pipeline.
 # All numbers here are PROJECT ASSUMPTIONS, not measured GPS performance.
 # GPS.gov explains receiver/environment dependence:
 # https://www.gps.gov/gps-accuracy
@@ -81,5 +81,5 @@ telemetry_simulation:
   dropout_duration_min_seconds: 1
   dropout_duration_max_seconds: 5
 
-# Event-rate calibration targets belong to task 09. No universal events/100 km
-# target is asserted without a dataset matched to this detector and population.
+# Event-rate calibration is a future extension. No universal events/100 km target
+# is asserted without a dataset matched to this detector and population.
