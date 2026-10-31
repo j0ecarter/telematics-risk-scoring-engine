@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "apexrisk"
 version = "0.1.0"
-description = "Synthetic-first telematics risk-scoring methodology demonstrator"
+description = "Synthetic telematics event detection and claim-frequency demonstration"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

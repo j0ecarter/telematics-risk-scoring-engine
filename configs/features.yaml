@@ -1,6 +1,3 @@
 features:
   minimum_monthly_distance_km: 1.0
-  # Reserved for the planned second-by-second telemetry event detector.
-  hard_braking_threshold_mps2: -3.13
-  hard_acceleration_threshold_mps2: 2.50
-  event_merge_gap_seconds: 2.0
+  # Event detection is configured separately in configs/telemetry.yaml.

@@ -18,7 +18,8 @@ app = FastAPI(
     title="ApexRisk API",
     version=__version__,
     description=(
-        "Synthetic-first telematics risk-scoring methodology demonstrator. "
+        "Synthetic telematics event detection and claim-frequency demonstration. "
+        "This API currently provides a health check only. "
         "Not a production insurance pricing service."
     ),
 )

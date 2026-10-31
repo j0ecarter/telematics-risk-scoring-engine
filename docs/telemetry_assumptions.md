@@ -3,9 +3,10 @@
 Recorded 26 September 2026. Scope: synthetic passenger cars sampled at 1 Hz.
 The settings are in `configs/telemetry.yaml`. They are a documented starting
 point for implementation, not a validated detector or evidence of real-world
-insurance risk. Task 02 established these assumptions; tasks 03 and 04 now enforce
-edge handling and signal preprocessing. Tasks 05-09 still cover event counting,
-detector completion, generation, pipeline integration and performance checks.
+insurance risk. Schema validation, preprocessing, event counting and deterministic
+demo checks are implemented. Population trace generation and pipeline integration
+are deferred extensions; see [Project scope](scope.md). The fixed demo uses no
+random measurement noise and does not load the GPS-error settings below.
 
 ## Evidence and its limits
 
@@ -29,7 +30,7 @@ detector completion, generation, pipeline integration and performance checks.
 
 | Setting | Value | Reason and trade-off |
 |---|---:|---|
-| Centred median window | 3 samples / seconds at 1 Hz | Removes isolated spikes; a wider window risks losing more short events. Must be tested. |
+| Centred median window | 3 samples / seconds at 1 Hz | Removes isolated spikes; a wider window risks losing more short events. Covered by detector tests. |
 | Trim per valid-segment end | 2 samples | One neighbour for the median plus one for the central difference requires a five-sample raw neighbourhood. |
 | Minimum event duration | 2 consecutive qualifying samples | Rejects isolated crossings; also misses some real brief events. Sample count is a duration approximation. |
 | Minimum separation | 3 below-threshold samples | Merge gaps of 0-2 samples; a gap of 3 is separate. Prevents brief dips splitting a manoeuvre, but can merge distinct actions. |
@@ -42,8 +43,7 @@ Never calculate a derivative or merge an event across an invalid GPS gap.
 For the current centred speed method, a valid segment shorter than five samples
 has no usable interior acceleration. Two interior samples require six raw
 samples, though those samples must also qualify to count as an event. The
-preprocessing for these behaviours is implemented and tested. Event qualification,
-merging and complete detector acceptance tests remain tasks 05-06. Edge trimming
+preprocessing, event qualification and merging are implemented and tested. Edge trimming
 for acceleration does not apply to speeding exposure, whose denominator is valid
 GPS seconds.
 
@@ -66,13 +66,15 @@ After qualifying runs are merged within a valid segment, classify each event
 once by its peak magnitude: moderate below harsh, harsh below severe, severe
 at or above severe. A short peak can therefore raise an otherwise qualifying
 event's band. Preserve `hard_*_count` as harsh + severe, per the existing contract.
-Implementation is still task 05; the supplied numbers alone do not count events.
+These bands are implemented by the detector and covered by its tests; the values
+remain engineering assumptions rather than calibrated accident-risk categories.
 
-## GPS-error scenario for the future generator
+## GPS-error scenario for an optional future population generator
 
 These are separate `telemetry_simulation` design settings. The existing
-`EventDetectionConfig` loads only `telemetry`; the generator and its settings
-loader have not yet been implemented. The current pipeline is unaffected.
+`EventDetectionConfig` loads only `telemetry`; the population generator and its
+settings loader have not been implemented. These settings affect neither the
+current pipeline nor the deterministic demo, which has a fixed dropout interval.
 
 - Speed noise: independent zero-mean Gaussian draws, standard deviation
   **1.8 km/h** (0.5 m/s), before clipping observed speed at zero.
@@ -94,7 +96,7 @@ modelled realistically by this simple scenario. A speed gate helps detection,
 but does not make the underlying heading estimate accurate.
 
 This note supplies the initial numerical choices referenced by section 7 of
-`telemetry_contract.md`. Task 03 subsequently fixed the surrounding behaviour:
+`telemetry_contract.md`. The schema fixes the surrounding behaviour:
 invalid observations use `NaN` while their rows remain present, the internal
 true trace reconciles total distance, observed valid time/distance supply the
 detector denominators, and one uninterrupted synthetic trip is capped at four
@@ -102,11 +104,13 @@ hours. Those decisions are enforced by the schema and journey tests.
 
 ## Validation and later sensitivity checks
 
-Task 02 is complete when the detector configuration loads, every numerical
-choice has a source or explicit rationale, and 1 Hz limitations are documented.
-Passing configuration validation proves admissible settings, not detection quality.
+The detector configuration loads, each numerical choice has a source or explicit
+rationale, and 1 Hz limitations are documented. Passing configuration validation
+proves admissible settings, not detection quality. The deterministic demo checks
+known traces against fixed expectations; it is not the broader sensitivity study
+outlined below.
 
-In tasks 06 and 09, use known traces and vary one setting at a time:
+For an optional sensitivity study, use known traces and vary one setting at a time:
 
 - Median window 1 / 3 / 5, with derivative trim recomputed as window//2 + 1.
 - Minimum duration 1 / 2 / 3 samples, separation 1 / 3 / 5, speed gate 10 / 20 / 30 km/h.
@@ -117,7 +121,7 @@ In tasks 06 and 09, use known traces and vary one setting at a time:
 Measure false detections on steady traces, missed/merged injected events and
 sensitivity of speeding estimates. Do not tune synthetic outcomes to claim real
 predictive accuracy. No event-rate-per-distance calibration target is assigned
-until a compatible benchmark is available (task 09).
+until a compatible benchmark is available.
 
 At 1 Hz, short events can fall between samples. Median smoothing and central
 differencing can reduce peaks, and two qualifying samples do not precisely
