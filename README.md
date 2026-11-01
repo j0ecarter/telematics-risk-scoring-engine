@@ -11,8 +11,9 @@ pricing accuracy.
 
 ## Current scope and status
 
-The finish line is a reproducible telemetry demonstration, a verified API
-container, and clear results and limitations. See [Project scope](docs/scope.md)
+The agreed portfolio demonstration is complete: a reproducible telemetry demo,
+a validated journey-analysis API, a verified container, and documented results
+and limitations. See [Project scope](docs/scope.md)
 for completion criteria and deferred work.
 
 | Component | Current behaviour |
@@ -21,8 +22,8 @@ for completion criteria and deferred work.
 | Deterministic demo | Six controlled scenarios, fixed expected results, Parquet traces and a JSON comparison summary |
 | Synthetic population pipeline | Generates drivers, vehicles, trip summaries, behavioural features, policy exposure and claims |
 | Frequency baseline | Poisson GLM using previous-month behaviour and insured exposure; latest-month evaluation against a constant-rate benchmark |
-| API | `/health` liveness check and generated `/docs`; no journey-analysis or scoring endpoint |
-| Docker | Local image build, `/health`, `/docs`, container shutdown and six-scenario demo verified on 31 October 2026 |
+| API | `POST /journeys/analyse` validates one small 1 Hz trace and returns detector counts; `/health` and interactive `/docs` included |
+| Docker | Image build, health/docs, valid and invalid journey requests, six-scenario detector agreement and container shutdown verified on 1 November 2026 |
 
 The demo and population pipeline are separate workflows. The population pipeline
 simulates event counts directly; it does **not** run the telemetry detector.
@@ -111,51 +112,87 @@ not beat the constant-rate benchmark; the held-out month contains only one claim
 
 ## API and Docker
 
-Start the local API:
+Run commands from the repository root. Start the local API with the project's
+environment active:
 
 ```bash
 make serve
 ```
 
-From another terminal:
+Open [interactive documentation](http://localhost:8000/docs). Expand
+`POST /journeys/analyse`, click **Try it out**, then **Execute** to send the supplied
+ten-second speeding example. The health check is `GET /health`.
+
+The same request is saved in [examples/journey_speeding.json](examples/journey_speeding.json):
 
 ```bash
-curl --fail http://localhost:8000/health
-curl --fail http://localhost:8000/docs
+curl --fail-with-body http://localhost:8000/journeys/analyse \
+  -H 'Content-Type: application/json' \
+  --data-binary @examples/journey_speeding.json
 ```
 
-The health response is:
+Expected response:
 
 ```json
 {
-  "status": "ok",
-  "service": "apexrisk",
-  "version": "0.1.0",
-  "data_mode": "synthetic",
-  "production_pricing": false
+  "brake_events_moderate": 0,
+  "brake_events_harsh": 0,
+  "brake_events_severe": 0,
+  "accel_events_moderate": 0,
+  "accel_events_harsh": 0,
+  "accel_events_severe": 0,
+  "corner_events_moderate": 0,
+  "corner_events_harsh": 0,
+  "corner_events_severe": 0,
+  "speeding_seconds": 10
 }
 ```
 
-To build and run the same API in Docker:
+The request contains `speed_limit_kmh`, `speed_kmh`, `heading_degrees` and
+`is_gps_valid`. Arrays must have equal lengths of 1–600 samples, with each position
+representing one second. Numbers must be finite; speed and speed limit must be
+non-negative, and headings must be in `[0, 360)`. A missing GPS sample stays in
+the arrays with `false` validity and `null` speed and heading. Unexpected fields
+and invalid types are rejected. Invalid requests return HTTP 422 with error
+locations and messages.
+
+The endpoint uses the same detector and `configs/telemetry.yaml` settings as the
+Python demo. It returns event counts by severity and speeding seconds, without
+event timestamps, claim predictions, premiums or a real-world safety rating.
+
+Build and start the packaged API:
 
 ```bash
 make docker-build
 make docker-run
 ```
 
-Run the two `curl` checks again from another terminal. The image build and local
-container checks were verified on 31 October 2026; see the
-[commands and observed results](docs/results.md#docker-verification). If host port
-8000 is occupied, use `docker run --rm --name apexrisk-api -p 127.0.0.1:8001:8000 apexrisk:local` on one line and check `http://localhost:8001/health` and `/docs`.
-A healthy service does not mean the telemetry detector or model is exposed through
-the API.
+Docker publishes to your computer's loopback address on port **8003**, while the
+application listens on port 8000 inside the container. Open
+[container documentation](http://localhost:8003/docs), or check from another terminal:
+
+```bash
+curl --fail http://localhost:8003/health
+curl --fail-with-body http://localhost:8003/journeys/analyse \
+  -H 'Content-Type: application/json' \
+  --data-binary @examples/journey_speeding.json
+```
+
+Change an occupied host port with `make docker-run DOCKER_PORT=8004` and use that
+port in the URLs. Stop the foreground container with **Ctrl+C**; `--rm` removes it.
+For local development on another port, use
+`python -m uvicorn apexrisk.api.main:app --reload --port 8002`.
+
+The final image, API requests and detector agreement were checked on
+**1 November 2026**. See [recorded verification](docs/results.md#docker-verification)
+and [machine-readable completion evidence](docs/evidence/completion-2026-11-01.json).
 
 ## Repository layout
 
 ```text
 configs/                    Active assumptions and labelled future design settings
 src/apexrisk/
-  api/                      Health-check API
+  api/                      Validated single-journey analysis and health API
   telemetry/                Schema, preprocessing, event detection and fixed demo
   simulation/               Synthetic drivers, vehicles, trip summaries and claims
   features/                 Trip and driver-month behavioural features
@@ -164,7 +201,8 @@ src/apexrisk/
   cli.py                    Pipeline and telemetry-demo commands
   pipeline.py               Population simulation and Parquet export
 tests/                      Unit, integration and CLI checks
-docs/                       Scope, demo, telemetry contract and assumptions
+docs/                       Scope, results, saved evidence and detector assumptions
+examples/                   Runnable journey-analysis JSON request
 Dockerfile                  API container definition
 ```
 
@@ -214,10 +252,14 @@ requirements.
 | Pipeline integration | Generate observed telemetry per trip and derive population trip summaries through the detector | Seeded runs reconcile distance and duration, use valid GPS exposure, and process traces without retaining the full population's telemetry |
 | Model validation | Evaluate larger synthetic samples across multiple seeds and add a held-out-driver split | Report Poisson deviance, calibration and uncertainty against the constant-rate benchmark for both time and driver holdouts |
 | External validation | Compare with appropriately licensed real journeys or compatible published benchmarks | Document data provenance, sampling and feature compatibility, and where synthetic assumptions disagree with observed data |
-| Journey-analysis API | Accept a validated journey and return event counts and valid GPS exposure | Endpoint tests cover valid journeys, missing GPS, malformed inputs and consistent results with the Python detector |
+| API exposure reporting | Return valid GPS time, observed distance and coverage alongside event counts | Response tests reconcile the exposure fields with `summarise_valid_exposure` |
 
 Further research could explore Gamma severity and Tweedie pure-premium models,
 credibility weighting, fairness and drift. These would need their own evaluation
 criteria before becoming project commitments. Pricing or deployment extensions
 would not, by themselves, establish real-world predictive accuracy or production
 readiness.
+
+## Licence
+
+ApexRisk is distributed under the [MIT licence](LICENSE).

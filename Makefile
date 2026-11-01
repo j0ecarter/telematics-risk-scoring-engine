@@ -1,5 +1,7 @@
 .PHONY: install test lint pipeline serve docker-build docker-run
 
+DOCKER_PORT ?= 8003
+
 install:
 	python -m pip install -e ".[dev]"
 
@@ -23,4 +25,4 @@ docker-build:
 	docker build -t apexrisk:local .
 
 docker-run:
-	docker run --rm -p 8000:8000 apexrisk:local
+	docker run --rm -p 127.0.0.1:$(DOCKER_PORT):8000 apexrisk:local

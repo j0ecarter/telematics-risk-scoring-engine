@@ -1,0 +1,203 @@
+{
+  "verification_date": "2026-11-01",
+  "scope": "Completed synthetic portfolio demonstration and single-trace detector API",
+  "source_code_commit": "94b5ea66663491234ea495a05f8deb55fbd0900c",
+  "note": "Documentation, Dockerfile, Makefile and licence polish was present locally during this build. Source hashes bind the verified content.",
+  "local_checks": {
+    "pytest": {
+      "passed": 196,
+      "failed": 0
+    },
+    "ruff": "passed",
+    "telemetry_demo": {
+      "passed": 6,
+      "total": 6
+    },
+    "make_docker_run_default": "127.0.0.1:8003:8000",
+    "make_docker_run_port_override": "verified with DOCKER_PORT=8004"
+  },
+  "docker": {
+    "build_succeeded": true,
+    "image_tag": "apexrisk:local",
+    "image_id": "sha256:64e74677291bf98e3be02d811d3fbfadc90709553823c5f97d46ee8b536415a7",
+    "image_platform": "linux/arm64",
+    "python": "Python 3.12.16",
+    "engine_version": "29.8.2",
+    "publish_argument": "127.0.0.1::8000",
+    "checks": {
+      "health_http_status": 200,
+      "health_response": {
+        "status": "ok",
+        "service": "apexrisk",
+        "version": "0.1.0",
+        "data_mode": "synthetic",
+        "production_pricing": false
+      },
+      "docs_http_status": 200,
+      "swagger_ui_html_present": true,
+      "openapi_paths": [
+        "/health",
+        "/journeys/analyse"
+      ],
+      "readme_example_matches_openapi": true,
+      "example_http_status": 200,
+      "example_response": {
+        "brake_events_moderate": 0,
+        "brake_events_harsh": 0,
+        "brake_events_severe": 0,
+        "accel_events_moderate": 0,
+        "accel_events_harsh": 0,
+        "accel_events_severe": 0,
+        "corner_events_moderate": 0,
+        "corner_events_harsh": 0,
+        "corner_events_severe": 0,
+        "speeding_seconds": 10
+      },
+      "negative_speed_http_status": 422,
+      "negative_speed_error": {
+        "detail": [
+          {
+            "loc": [
+              "body"
+            ],
+            "msg": "Value error, Sample 0: speed must be non-negative",
+            "type": "value_error"
+          }
+        ]
+      },
+      "non_finite_http_status": 422,
+      "non_finite_error": {
+        "detail": [
+          {
+            "loc": [
+              "body",
+              "speed_limit_kmh"
+            ],
+            "msg": "Input should be a finite number",
+            "type": "finite_number"
+          }
+        ]
+      },
+      "scenario_comparisons": [
+        {
+          "scenario": "steady",
+          "http_status": 200,
+          "matches_detector": true,
+          "event_counts": {
+            "brake_events_moderate": 0,
+            "brake_events_harsh": 0,
+            "brake_events_severe": 0,
+            "accel_events_moderate": 0,
+            "accel_events_harsh": 0,
+            "accel_events_severe": 0,
+            "corner_events_moderate": 0,
+            "corner_events_harsh": 0,
+            "corner_events_severe": 0,
+            "speeding_seconds": 0
+          }
+        },
+        {
+          "scenario": "braking",
+          "http_status": 200,
+          "matches_detector": true,
+          "event_counts": {
+            "brake_events_moderate": 0,
+            "brake_events_harsh": 1,
+            "brake_events_severe": 0,
+            "accel_events_moderate": 0,
+            "accel_events_harsh": 0,
+            "accel_events_severe": 0,
+            "corner_events_moderate": 0,
+            "corner_events_harsh": 0,
+            "corner_events_severe": 0,
+            "speeding_seconds": 0
+          }
+        },
+        {
+          "scenario": "acceleration",
+          "http_status": 200,
+          "matches_detector": true,
+          "event_counts": {
+            "brake_events_moderate": 0,
+            "brake_events_harsh": 0,
+            "brake_events_severe": 0,
+            "accel_events_moderate": 0,
+            "accel_events_harsh": 1,
+            "accel_events_severe": 0,
+            "corner_events_moderate": 0,
+            "corner_events_harsh": 0,
+            "corner_events_severe": 0,
+            "speeding_seconds": 0
+          }
+        },
+        {
+          "scenario": "cornering",
+          "http_status": 200,
+          "matches_detector": true,
+          "event_counts": {
+            "brake_events_moderate": 0,
+            "brake_events_harsh": 0,
+            "brake_events_severe": 0,
+            "accel_events_moderate": 0,
+            "accel_events_harsh": 0,
+            "accel_events_severe": 0,
+            "corner_events_moderate": 0,
+            "corner_events_harsh": 1,
+            "corner_events_severe": 0,
+            "speeding_seconds": 0
+          }
+        },
+        {
+          "scenario": "speeding",
+          "http_status": 200,
+          "matches_detector": true,
+          "event_counts": {
+            "brake_events_moderate": 0,
+            "brake_events_harsh": 0,
+            "brake_events_severe": 0,
+            "accel_events_moderate": 0,
+            "accel_events_harsh": 0,
+            "accel_events_severe": 0,
+            "corner_events_moderate": 0,
+            "corner_events_harsh": 0,
+            "corner_events_severe": 0,
+            "speeding_seconds": 29
+          }
+        },
+        {
+          "scenario": "gps_dropout",
+          "http_status": 200,
+          "matches_detector": true,
+          "event_counts": {
+            "brake_events_moderate": 0,
+            "brake_events_harsh": 0,
+            "brake_events_severe": 0,
+            "accel_events_moderate": 0,
+            "accel_events_harsh": 0,
+            "accel_events_severe": 0,
+            "corner_events_moderate": 0,
+            "corner_events_harsh": 0,
+            "corner_events_severe": 0,
+            "speeding_seconds": 0
+          }
+        }
+      ],
+      "cli_demo_exit_code": 0,
+      "cli_demo_output": "PASS: steady\nPASS: braking\nPASS: acceleration\nPASS: cornering\nPASS: speeding\nPASS: gps_dropout\n6/6 scenarios passed.\nResults saved to: data/generated/telemetry_demo/summary.json",
+      "temporary_container_stopped_and_removed": true
+    }
+  },
+  "verified_image_source_sha256": {
+    "src/apexrisk/api/main.py": "f67b2fd6a2a9e1b0b7089b18d301ad601f1a26ca57a0fea9dd6f2e572d1647be",
+    "src/apexrisk/config.py": "5e4035b48f9744ce42d64cc8ee7a58bb4932812f700c25b51cdc44b887ccdee8",
+    "src/apexrisk/telemetry/detection.py": "87b69760eb972e9f58d2865ea94583a88e73c5f8bdb9f3901a769183e255e615",
+    "configs/telemetry.yaml": "f372987cf3c21e077ddf926cb0ba3ed6cce914d4514826b3d965e36977819db8",
+    "LICENSE": "f0d6a491cb47d01b5a01bc2ff8d1f0d734764faff9a62d2d51afaab8f6188c1b"
+  },
+  "working_tree_sha256": {
+    "Dockerfile": "927f9717bac6256667bfa94815161c52f7cea96cf93be2111673e80fab19a4aa",
+    "Makefile": "ef25f9bdc7d1917d59c97644bd528c7d8e01d9115c748d5cccea26779f98b960",
+    "pyproject.toml": "73cae407b400c82e0ca48aea21c42d7cf39c2fdcc9350242b296d3db53ac00a8",
+    "examples/journey_speeding.json": "d0736f2320c465037b0665d8a2c52c7335c1e1a36875f21fe31411e8fa46a94d"
+  }
+}
