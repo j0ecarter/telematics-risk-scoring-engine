@@ -171,3 +171,16 @@ def test_dropout_prevents_a_derivative_between_different_speed_levels() -> None:
         accelerations.append(longitudinal_acceleration_ms2(smoothed))
 
     assert all(np.isnan(acceleration).all() for acceleration in accelerations)
+
+
+
+def test_lateral_acceleration_does_not_overflow_when_averaging_finite_speeds() -> None:
+    maximum = np.finfo(np.float64).max
+    with np.errstate(over="raise", invalid="raise"):
+        lateral = lateral_acceleration_ms2(
+            np.full(3, maximum), np.array([0.0, 180.0, 0.0])
+        )
+
+    assert np.isnan(lateral[0])
+    assert np.isfinite(lateral[1:]).all()
+    np.testing.assert_allclose(lateral[1:], (maximum / 3.6) * np.pi)

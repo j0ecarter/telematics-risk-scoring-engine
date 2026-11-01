@@ -188,8 +188,7 @@ def lateral_acceleration_ms2(
         heading_change_radians / TELEMETRY_SAMPLE_INTERVAL_SECONDS
     )
     pair_speed_ms = (
-        0.5
-        * (speed_kmh[:-1] + speed_kmh[1:])
+        (0.5 * speed_kmh[:-1] + 0.5 * speed_kmh[1:])
         * KILOMETRES_PER_HOUR_TO_METRES_PER_SECOND
     )
     lateral_acceleration[1:] = np.abs(pair_speed_ms * yaw_rate_radians_per_second)
