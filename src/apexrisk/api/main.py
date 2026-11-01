@@ -1,10 +1,13 @@
 """Minimal API surface for container and deployment verification."""
 
+import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from apexrisk import __version__
 
+from apexrisk.config import EventDetectionConfig
+from apexrisk.telemetry.detection import EventCounts, detect_events
 
 class HealthResponse(BaseModel):
     status: str
@@ -79,6 +82,9 @@ class TraceRequest(BaseModel):
 
         return self
 
+DETECTOR_CONFIG = EventDetectionConfig.from_yaml(
+    "configs/telemetry.yaml"
+)
 
 app = FastAPI(
     title="ApexRisk API",
@@ -99,4 +105,24 @@ def health() -> HealthResponse:
         version=__version__,
         data_mode="synthetic",
         production_pricing=False,
+    )
+
+@app.post(
+    "/journeys/analyse",
+    response_model=EventCounts,
+    tags=["telemetry"],
+)
+def analyse_journey(trace: TraceRequest) -> EventCounts:
+    return detect_events(
+        speed_kmh=np.asarray(trace.speed_kmh, dtype=float),
+        heading_degrees=np.asarray(
+            trace.heading_degrees,
+            dtype=float,
+        ),
+        is_gps_valid=np.asarray(
+            trace.is_gps_valid,
+            dtype=bool,
+        ),
+        speed_limit_kmh=trace.speed_limit_kmh,
+        config=DETECTOR_CONFIG,
     )
