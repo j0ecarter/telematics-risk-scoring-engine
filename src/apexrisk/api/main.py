@@ -24,6 +24,16 @@ class TraceRequest(BaseModel):
         extra="forbid",
         strict=True,
         allow_inf_nan=False,
+        json_schema_extra={
+            "examples": [
+                {
+                    "speed_limit_kmh": 60,
+                    "speed_kmh": [70] * 10,
+                    "heading_degrees": [90] * 10,
+                    "is_gps_valid": [True] * 10,
+                }
+            ]
+        },
     )
 
     speed_limit_kmh: float = Field(ge=0)

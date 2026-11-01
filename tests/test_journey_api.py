@@ -160,3 +160,20 @@ def test_analysis_handles_large_finite_speeds_without_numeric_overflow() -> None
     result = response.json()
     assert result.pop("speeding_seconds") == 10
     assert all(value == 0 for value in result.values())
+
+
+
+def test_documented_example_can_be_executed() -> None:
+    schema = app.openapi()
+    body_schema = schema["paths"]["/journeys/analyse"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
+    assert body_schema["$ref"] == "#/components/schemas/TraceRequest"
+    example = schema["components"]["schemas"]["TraceRequest"]["examples"][0]
+
+    response = post_trace(example)
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result.pop("speeding_seconds") == 10
+    assert all(value == 0 for value in result.values())
