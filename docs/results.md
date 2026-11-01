@@ -9,6 +9,8 @@ Results below were regenerated on **31 October 2026**, using the repository's
 default configurations. The [saved results](evidence/results-2026-10-31.json)
 include unrounded metrics, settings, runtime versions, source commit and source
 hashes. Generated population and trace files remain ignored local outputs.
+The API and container verification below was extended on 1 November 2026;
+the telemetry and model metrics above remain the dated 31 October snapshot.
 
 ## Controlled telemetry results
 
@@ -112,9 +114,10 @@ establish that its drivers are safe or have zero underlying claim risk.
 - **Coverage:** six fixed scenario checks are not estimates of real-world
   detector precision or recall. No external journey or claims dataset was used.
   No-event journeys are not certified safe.
-- **System boundary:** the API provides health and documentation routes only.
-  Claim severity modelling, premiums, fairness, uncertainty estimation and
-  deployment monitoring are outside the completed demonstration.
+- **System boundary:** the API analyses one small trace using the existing detector,
+  alongside health and documentation routes. The synthetic claim model remains a
+  separate offline workflow. Claim severity modelling, premiums, fairness,
+  uncertainty estimation and deployment monitoring are outside the demonstration.
 
 Larger samples across seeds and held-out drivers would be useful future checks,
 but would still require compatible real observations before any real-world
@@ -146,31 +149,48 @@ as a dated snapshot and retain versions when comparing new runs.
 
 ## Docker verification
 
-The image build succeeded in the user's terminal. A subsequent check of that
-`apexrisk:local` image on 31 October 2026 confirmed HTTP 200 from `/health` with
-the expected synthetic-mode response, HTTP 200 and Swagger UI HTML from `/docs`,
-and an OpenAPI schema containing `/health`. The telemetry demo passed all six
-scenarios inside the image. The temporary API container was stopped successfully.
-This checks the docs route and HTML; browser rendering was not independently
-checked. See [container evidence](evidence/docker-2026-10-31.json).
+On **1 November 2026**, the updated image was built from the completed source and
+checked in a temporary container bound to an available loopback port. The checks
+covered HTTP 200 from `/health`, Swagger UI HTML from `/docs`, the published
+request example, and the journey-analysis route in `/openapi.json`.
 
-To repeat the interactive check, build and start the API:
+The documented speeding request returned HTTP 200 with ten speeding seconds and
+zero manoeuvre events. A negative-speed request and non-finite numeric input
+returned JSON HTTP 422 errors. All six controlled demo traces were also sent
+through the container endpoint and matched direct detector results. The CLI demo
+passed all six scenarios inside the image. The temporary verification container
+was stopped after the checks; other running containers were left alone.
+
+See [completion evidence](evidence/completion-2026-11-01.json) for the image ID,
+source hashes, observed results, local test and lint results. The original
+[31 October container evidence](evidence/docker-2026-10-31.json) records the earlier
+health-only image and remains available as a historical snapshot.
+
+Repeat the checks from the repository root:
 
 ```bash
-docker build -t apexrisk:local .
-docker run --rm --name apexrisk-api -p 127.0.0.1:8001:8000 apexrisk:local
+make docker-build
+make docker-run
 ```
 
 In another terminal:
 
 ```bash
-curl --fail http://localhost:8001/health
-curl --fail http://localhost:8001/docs
-docker stop apexrisk-api
+curl --fail http://localhost:8003/health
+curl --fail-with-body http://localhost:8003/journeys/analyse \
+  -H 'Content-Type: application/json' \
+  --data-binary @examples/journey_speeding.json
+```
+
+Open `http://localhost:8003/docs` to execute the supplied example. Change its first
+speed reading to `-1` and execute again to check the 422 response. Use
+`make docker-run DOCKER_PORT=8004` if port 8003 is occupied. Stop the foreground
+container with **Ctrl+C**. The standalone container demo is:
+
+```bash
 docker run --rm apexrisk:local python -m apexrisk telemetry-demo
 ```
 
-Open `http://localhost:8001/docs` in a browser while the API is running to inspect
-the interactive documentation. This verifies packaging and the present API
-surface, not a deployed scoring service. The model metrics above were collected
-in the local environment, separately from these container checks.
+These checks verify packaging and the current detector API, not a deployed
+insurance scoring service. The claim-model metrics above were collected in the
+local environment separately from the container checks.
