@@ -96,7 +96,6 @@ class TraceRequest(BaseModel):
 
 
 DETECTOR_CONFIG = EventDetectionConfig.from_yaml("configs/telemetry.yaml")
-
 app = FastAPI(
     title="ApexRisk API",
     version=__version__,
